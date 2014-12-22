@@ -1,0 +1,6 @@
+CaculateDistance_oneTime.py是自己写sink周期只发送一次的统计程序，CaculateDistance_manyTime.py是sink周期内发射四次广播信号的统计程序。
+serialtest.py是参考别人的程序
+
+第一次测量数据是先发射超声波，在发射电磁波的统计数据
+第二次测量数据是添加sink节点的数据
+第三次测量数据是sink的发射周期为1000ms一次，一次周期中发射4次广播信号，每次间隔100ms，其他同上 ，重测拟合曲线
