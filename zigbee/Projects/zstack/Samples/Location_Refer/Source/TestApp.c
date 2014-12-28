@@ -39,12 +39,24 @@
 /*********************************************************************
  * CONSTANTS
  */
-#define LOCATION_REFER_ID     4 //是参考节点的节点号，烧入不同节点的时候需要更改
-//#define RECV_TIMES 4            //此处要与sink节点的广播次数相同  之后写到LocationProfile.h中，共享一个变量名
+#define LOCATION_REFER_ID     3 //是参考节点的节点号，烧入不同节点的时候需要更改
+#define RECV_TIMES 4            //此处要与sink节点的广播次数相同  之后写到LocationProfile.h中，共享一个变量名
 //#define TIMEDIFF_MSG_LENGTH   5  //TIMEDIFF_MSG_LENGTH = （SeqNo RefNo）2bytes + Data（3bytes） ;    时间差的长度 因为数组只能为常量
 //#define RECV_TIMEOUT          400 //第一次接收到广播信号后开始计时，时间差应该大于发射次数-1(3)*间隔100此处取值400ms
 //#define RECV_DELAY_PERIOD     25  //参考节点延迟接收的时间，25ms，延迟接收3次，此处要与移动节点一致
-//#define REFER_RECV_DELAY_TIMES      4 //一次广播接收4次超声波信号，用于延迟接收
+#define REFER_RECV_DELAY_TIMES      4 //一次广播接收4次超声波信号，用于延迟接收
+
+/* 清除TIMER3和4中断标志位 */
+/********************************************************************/
+#define CLR_TIMER34_IF( bitMask ) TIMIF=(TIMIF&0x40)|(0x3F&(~bitMask))
+
+//定时器3 设置为  128分频 up-down模式
+#define TIMER34_INIT(timer) do{ T##timer##CTL = 0xEB; TIMIF = 0x00;} while (0)  
+
+// 定时器3使能
+#define TIMER3_RUN(value)      (T3CTL = (value) ? T3CTL | 0x10 : T3CTL & ~0x10)
+
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -59,15 +71,17 @@ byte Refer_TaskID;
 static byte transId;
 static unsigned int ui_sequence;  //获取序列号
 static unsigned int ui_mobileID;  //获取移动节点序号
-//unsigned char recTimes = 0;       //接收的次数，用于计算接收的次数
-//int32 i_timeDifference[RECV_TIMES];  //接收时间差的Ticks数组 *31.25*10**(-7)= 时间差
-int32 i_timeDifference;             //只广播一次超声波，故只计算一次的值
+unsigned char recTimes = 0;       //接收的次数，用于计算接收的次数
+int32 i_timeDifference[RECV_TIMES];  //接收时间差的Ticks数组 *31.25*10**(-7)= 时间差
+//int32 i_timeDifference;             //只广播一次超声波，故只计算一次的值
 //int32 i_timeDiff[RECV_TIMES];     //接收时间差数组
 unsigned char timeDiffMSG[LOCATION_REFER_POSITION_RSP_LENGTH]; 
 //unsigned char errorData[LOCATION_REFER_ERROR_POSITION_RSP_LENGTH];
 //bool b_ErrorData = 0;             //判断接收的数据是正确的还是错误的
 
-//unsigned char recvDelayTimes = 2;      //初始化，因为已经接收了两次了，用于延迟接收的
+unsigned char recvDelayTimes = 2;      //初始化，因为已经接收了两次了，用于延迟接收的
+
+static unsigned char t3count = 0;
 /*********************************************************************
  * LOCAL VARIABLES
  */
@@ -118,6 +132,8 @@ static MAC_T2_TIME getTime();
 //static void startRecWork(void);
 static void halProcessKeyInterrupt (void);
 static void sendData(void);
+void halSetTimer3Period(uint8 period);
+
 /*********************************************************************
  * @fn      Refer_Init
  *
@@ -267,9 +283,12 @@ static void processMSGCmd( afIncomingMSGPacket_t *pkt )
       //设置定时器
       //osal_start_timerEx( Refer_TaskID, RECV_DELAY_EVT, RECV_DELAY_PERIOD );
       
+      //开启定时器T3计时，25ms
+      TIMER3_RUN(TRUE);
+      
       //记下电磁波到达时间，作为开始计算的时间
       RfArrivalTime = getTime();            
-      IEN2 |= 0x10;             //打开P1的中断使能
+      //IEN2 |= 0x10;             //打开P1的中断使能
       bFirstRcv = TRUE;         //设置下次还能接受
       
       ui_sequence = pkt->cmd.Data[0];         //获取序列号
@@ -337,7 +356,7 @@ static MAC_T2_TIME getTime()
 static void checkTime()
 {
   //接收了4次超声波的方法
-  /*
+  
   if (recTimes < RECV_TIMES)        //判断是否接收完了相应的次数
   {
          
@@ -361,10 +380,10 @@ static void checkTime()
 
     //ui_T4time = ui_T4Overflow * 256 + ui_T4Count;
       
-    UltraArrivalTime.overflowCapture = 0;  //将两个时刻清零
-    UltraArrivalTime.timerCapture = 0;
-    RfArrivalTime.overflowCapture = 0;  
-    RfArrivalTime.timerCapture = 0;
+    //UltraArrivalTime.overflowCapture = 0;  //将两个时刻清零
+    //UltraArrivalTime.timerCapture = 0;
+    //RfArrivalTime.overflowCapture = 0;  
+    //RfArrivalTime.timerCapture = 0;
 
     recTimes++;
   }
@@ -375,11 +394,13 @@ static void checkTime()
     //static unsigned int const timeDiffMsgLength;
     //timeDiffMsgLength = 2 + 4 * RECV_TIMES;      //时间差的长度
     
+    //IEN2 &= ~0x10;       //关闭端口1中断使能 
     //发送数据给协调器
     sendData();
-      
+    recTimes = 0;         //将接收次数清0  
   }
-  */
+  
+  /*
   //只接收一次超声波的方法
   
   if (UltraArrivalTime.overflowCapture == 0 & UltraArrivalTime.timerCapture == 0)  //判断超声波是否接收到了，表示超声波未接收到
@@ -399,7 +420,7 @@ static void checkTime()
   {
     i_timeDifference = 0;
   }
-
+  */
   //ui_T4time = ui_T4Overflow * 256 + ui_T4Count;
     
   UltraArrivalTime.overflowCapture = 0;  //将两个时刻清零
@@ -407,7 +428,7 @@ static void checkTime()
   RfArrivalTime.overflowCapture = 0;  
   RfArrivalTime.timerCapture = 0;
   
-  sendData();
+  //sendData();
 }
 
 /*********************************************************************
@@ -437,7 +458,7 @@ void sendData(void)
   
   
   //接收4次的结果计算平均值的方法
-  /*
+  
   uint32 ui_totalTimeDiff = 0;
   int32 i_averageTime = 0;
   int32 i_goodTimeDifference[RECV_TIMES];
@@ -502,7 +523,9 @@ void sendData(void)
   
   //unsigned char timeDiffMSG[LOCATION_REFER_POSITION_RSP_LENGTH]; 
   timeDiffMSG[LOCATION_REFER_POSITION_RSP_SEQUENCE] =  ui_sequence;      //序列号  注意此处的帧没有MSG_TYPE
-  timeDiffMSG[LOCATION_REFER_POSITION_RSP_FIXID] = LOCATION_REFER_ID;         //参考节点ID
+  timeDiffMSG[LOCATION_REFER_POSITION_RSP_MOBID] =  ui_mobileID;      //移动节点ID
+  timeDiffMSG[LOCATION_REFER_POSITION_RSP_REFID] = LOCATION_REFER_ID;         //参考节点ID
+  
   
   if (i_averageTime!=0)
   {  
@@ -518,16 +541,16 @@ void sendData(void)
     timeDiffMSG[LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD] = 0xFF;      //时间差中八位
     timeDiffMSG[LOCATION_REFER_POSITION_RSP_DSITANCE_LOW] = 0xFF;      //时间差低八位
   }
-  */
   
-  /*
+  
+  
   int temp;
   for(temp = 0;temp < RECV_TIMES;temp++)
   {
     i_timeDifference[temp] = 0;               //将接收时间差数组清零
   } 
-  recTimes = 0;         //将接收次数清0
-  */
+  
+  
     
     /*
     int n;
@@ -552,7 +575,7 @@ void sendData(void)
     
     
   //接收一次超声波的方法,增加了移动节点ID
-  
+  /*
   timeDiffMSG[LOCATION_REFER_POSITION_RSP_SEQUENCE] =  ui_sequence;      //序列号  注意此处的帧没有MSG_TYPE
   timeDiffMSG[LOCATION_REFER_POSITION_RSP_MOBID] =  ui_mobileID;      //移动节点ID
   timeDiffMSG[LOCATION_REFER_POSITION_RSP_REFID] = LOCATION_REFER_ID;         //参考节点ID
@@ -571,12 +594,13 @@ void sendData(void)
     timeDiffMSG[LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD] = 0xFF;      //时间差中八位
     timeDiffMSG[LOCATION_REFER_POSITION_RSP_DSITANCE_LOW] = 0xFF;      //时间差低八位
   }
+  */
   
   //开启一个事件，延迟10ms*ID的时间发送消息，避免碰撞
   unsigned int delaySend;
   delaySend = 10 * LOCATION_REFER_ID;
   osal_start_timerEx( Refer_TaskID, REFER_DELAYSEND_EVT, delaySend );
-  i_timeDifference = 0;
+  //i_timeDifference = 0;
   
 }
 
@@ -836,7 +860,7 @@ void halProcessKeyInterrupt (void)
       }
       
       bFirstRcv = FALSE;//设置为已经接收过了
-      IEN2 &= ~0x10;       //关闭端口1中断使能
+      //IEN2 &= ~0x10;       //关闭端口1中断使能  
       checkTime();         //超声波后到计算
       
       
@@ -846,6 +870,67 @@ void halProcessKeyInterrupt (void)
       
       
     }
+}
+
+
+/*********************************************************************
+ * 函数名称：halSetTimer3Period
+ * 功    能：设置定时器3定时周期
+ * 入口参数：period   定时周期       
+ * 出口参数：无
+ * 返 回 值：无
+ ********************************************************************/
+void halSetTimer3Period(uint8 period)
+{
+  /* 给T3CC0写入最终计数值period */
+  T3CC0 = period & 0xFF;             // 把period的值写入T3CC0
+}
+
+
+/*********************************************************************
+ * 函数名称：T3_IRQ
+ * 功    能：定时器1中断服务函数 注意入口函数与裸机中断入口函数不同 实际效果不理想，故舍去
+ * 入口参数：无
+ * 出口参数：无
+ * 返 回 值：无
+ ********************************************************************/
+
+//_PRAGMA(vector=T1_VECTOR) __near_func __interrupt void halTimer1Isr(void);  
+HAL_ISR_FUNCTION( halTimer3Isr, T3_VECTOR)
+{
+  IEN1 &= ~0x03;    //关闭定时器3中断使能
+  if(TIMIF & 0x01) //确认是否产生计时中断
+  {
+    t3count++;
+    if(t3count == 12)     //2*12=24ms
+    {
+      t3count = 0;
+      
+      //记下电磁波到达时间，作为开始计算的时间
+      RfArrivalTime = getTime(); 
+      
+      //P1_1 = ~P1_1;               //测试使用
+      //IEN2 |= 0x10;             //打开P1的中断使能
+      bFirstRcv = TRUE;         //设置下次还能接受
+      
+      if(recvDelayTimes == REFER_RECV_DELAY_TIMES)
+      {
+        recvDelayTimes = 2;
+        //将定时器T3清0，为下次中断做准备
+        T3CTL |= 0x04;       //将计数值清0
+        TIMER3_RUN(FALSE);
+      }
+      else
+      {
+        recvDelayTimes++;
+      }
+    }    
+  }
+  
+  TIMIF &= ~0x01;  
+  //T1STAT &= ~0x21;  //清除定时器3的标志位
+  //IRCON &= ~0x02;   //同上
+  IEN1 |= 0x03;    //打开定时器3中断使能
 }
 
 /*********************************************************************
@@ -882,7 +967,7 @@ void initP0()
    P0SEL &= ~0xBD;              //将P0_2 P0_3 P0_4 P0_5 P0_7置为GPIO
    P0DIR |= 0xBC;               //将P0_2、P0_3 P0_4 P0_5 P0_7置为输出
    
-   //P1SEL &= ~0x01;              //初始化P1_1 设置为通用I/O输出 示波器测试使用 P4上的6脚
+   //P1SEL &= ~0x01;              //初始化P1_1 设置为通用I/O输出 示波器测试使用 P4上的4脚
    //P1DIR &= ~0x01;
    //P1_1 = 0;
    
@@ -894,7 +979,7 @@ void initP0()
       
    P1IEN |= 0x04;               //P1_2设置为中断使能方式
    PICTL |= 0x02;               //P1_2为下降沿触发     
-   //IEN2 |= 0x10;                //打开端口1中断使能  
+   IEN2 |= 0x10;                //打开端口1中断使能  
    P1IFG  = 0;                  //复位端口1的标志位
    P1IF  = 0; 
    
@@ -902,14 +987,14 @@ void initP0()
    //IP0 |= 0x20;
    
    //初始化接收数组为0
-   /*
+   
    int temp;
     for(temp = 0;temp < RECV_TIMES;temp++)
     {
       i_timeDifference[temp] = 0;               //将接收时间差数组清零
     }
-   */
-   i_timeDifference = 0;
+   
+   //i_timeDifference = 0;
    
     //ui_MAC_RFArrivalTime = pkt ->timestamp;
     //startRecWork(); 
@@ -931,5 +1016,9 @@ void initP0()
    
    YelLed_State = 0;          //初始化黄灯状态为关闭   
    
+   TIMER34_INIT(3);
+   halSetTimer3Period(250); //表示延迟2ms 注意：实际写入T1CC0寄存器的值应小于255
+   IEN1 |= (0x01 << 3);             // 使能Timer3的中断
+
    EA = 1;                      //开总使能
 }

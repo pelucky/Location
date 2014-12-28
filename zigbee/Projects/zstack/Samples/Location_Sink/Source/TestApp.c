@@ -41,7 +41,7 @@
 /*********************************************************************
  * CONSTANTS
  */
-#define SINK_BROADCAST_PERIOD 100 //广播周期一次为100ms发射一次,单位为ms
+#define SINK_BROADCAST_PERIOD 120 //广播周期一次为120ms发射一次,单位为ms
 
 #define SINK_BROADCAST_TIMES  4     //每次大周期内的发射次数
 
