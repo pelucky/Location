@@ -6,15 +6,27 @@
 import serial
 import globalVar
 import numpy as np
+import datetime
+import time
+
 
 
 def getSerial():
+    global lastTime
+    global MobID
+    lastTime = 0
     ser = serial.Serial(port='COM5', baudrate=19200, bytesize=8, parity='N', stopbits=1, timeout=None, xonxoff=0, rtscts=0)     #remember change this!
     print ser
     while True:                      #Always read data
         #get the serial data
         print '************************begin*****************************'
         line = ser.readline()                      #make sure the receive data is end with '\n' per time
+        Time = datetime.datetime.today()
+        print 'This received time is: ' + str(Time)
+        thisTime = time.time()
+        spendTimes = int(thisTime*1000) - int(lastTime*1000)
+        lastTime = thisTime   
+        print 'it totaly used ' + str(spendTimes) + 'ms'
     
         msgType = checkFitstData(line)                        #check the first data -- the message type
         if msgType == '01':
@@ -29,7 +41,7 @@ def getSerial():
             dataTimes = 4       #(len(line)-4)/globalVar.EACH_DATA_LENGTH                   #check get how many times datas per getin
             for times in range (0,dataTimes):
                 dataLine = line[times*globalVar.EACH_DATA_LENGTH+3:(times+1)*globalVar.EACH_DATA_LENGTH+3]       #get one data per times
-                referNo = getNo(dataLine,0)
+                referNo = times+1                                                           #getNo(dataLine,0)
                 print " :The Node " + str(referNo) + " Distance is :",                     #Do not change the line
                 hexShow(dataLine)
                 storeResult = hex2int(dataLine)
@@ -119,7 +131,7 @@ def useMatrix(argv):
         print "                                                               The mobile's Position is X:" + str(round(mobilePos[0],2)) + ' Y:' + str(round(mobilePos[1],2))
         print '---------------------------------------------------------'
         print
-        outputFileList(mobilePos, "nodePosition.txt")
+        outputFileList(MobID,mobilePos, "nodePosition.txt")
 
        
 def hexShow(argv):
@@ -159,7 +171,7 @@ def getTempurate(argv):
 
 def hex2int(argv):
     result = ''
-    for i in range(1,4):
+    for i in range(0,3):
         hvol = ord(argv[i])
         hhex = '%02x'%hvol
         result += hhex
@@ -184,12 +196,12 @@ def calcDistance(argv):
         finalDistance = 0
         print 'It cacl the error data!'
     else:
-        distanceData = round((argv * 31.25 / 10**7 )* (331.5 + 0.607 * 20) ,2)                  #globalVar.tempurateData caculte the average distace in the temputare of 5.0 C  the Unit is cm
+        distanceData = round((argv * 31.25 / 10**7 )* (331.5 + 0.607 * 22) ,2)                  #globalVar.tempurateData caculte the average distace in the temputare of 5.0 C  the Unit is cm
         print
         print 'Origan Average Data: ' + str(distanceData) + 'cm.',
         finalDistance = round(distanceData * 1 - 10,2)
         #finalDistance = round(secAveData * 1.011 - 2.1866,2)
-        print 'Modify Data: ' + str(finalDistance) + 'cm.'
+        print 'Modify Data:                                                                            ' + str(finalDistance) + 'cm.'
             
     print
     print
@@ -197,11 +209,14 @@ def calcDistance(argv):
 
 
 
-def outputFileList(List, filename):
+def outputFileList(ID,List, filename):
     fileHandler = file(filename, 'a+')
+    if (ID==1):
+        fileHandler.write('\n')
+        fileHandler.write(str(datetime.datetime.today()))
+    fileHandler.write('     '+str(ID)+': ')
     for item in List:
         fileHandler.write(str(round(item,2))+' ')
-    fileHandler.write('\n')
     fileHandler.close()
     
 

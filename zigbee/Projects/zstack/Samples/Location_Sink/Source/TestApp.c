@@ -41,13 +41,13 @@
 /*********************************************************************
  * CONSTANTS
  */
-#define SINK_BROADCAST_PERIOD 120 //广播周期一次为120ms发射一次,单位为ms
+#define SINK_BROADCAST_PERIOD 180 //广播周期一次为130ms发射一次,单位为ms,4个移动节点的极限了吧
 
-#define SINK_BROADCAST_TIMES  4     //每次大周期内的发射次数
+//#define SINK_BROADCAST_TIMES  4     //每次大周期内的发射次数
 
 #define SEQUENCE                200  //序列号，用于判断是否收到的是同一次数据
 
-#define MOBILEN_NO            4       //移动节点的个数
+//#define MOBILEN_NO            4       //移动节点的个数
 
 
 /*********************************************************************
@@ -59,8 +59,8 @@
  */
 byte Sink_TaskID;
 unsigned char uc_sequence = 100;        //改为计数从100-200，和结尾符0x0a分开
-unsigned char uc_mobileID = 1;          //第一次广播从1号节点开始
-unsigned char broadcastTimes = 0;       //周期广播次数
+//unsigned char uc_mobileID = 1;          //第一次广播从1号节点开始
+//unsigned char broadcastTimes = 0;       //周期广播次数
 uint8 transId;
 bool GreLedState = 0;
 static byte transId;
@@ -240,6 +240,16 @@ void startBroadcast( void )
     GreLedState = 0;
   }  
   
+  if (uc_sequence < SEQUENCE)     //设置发射序列号
+  {
+    uc_sequence++;
+  }
+  else
+  {
+    uc_sequence = 100;            
+  }
+  
+  /*
   if (uc_mobileID > MOBILEN_NO)
   {
     uc_mobileID = 1;
@@ -252,17 +262,18 @@ void startBroadcast( void )
       uc_sequence = 100;            
     }
   }
+  */
   
   //发射电磁波
-  unsigned char theMessageData[2];     //发射内容为序列号 移动节点号
+  unsigned char theMessageData[1];     //发射内容为序列号 移动节点号
   theMessageData[0] = uc_sequence;
-  theMessageData[1] = uc_mobileID;
+  //theMessageData[1] = uc_mobileID;
   afAddrType_t broadcast_DstAddr;
   broadcast_DstAddr.addrMode = (afAddrMode_t)AddrBroadcast;
   broadcast_DstAddr.endPoint = LOCATION_REFER_ENDPOINT;           //暂时未解决如何广播两种端口的问题，只能将不同类型的节点的ENDPOINT设置为一样的
   broadcast_DstAddr.addr.shortAddr = 0xFFFF;  //表示数据包发往网络中的所有节点广播，设置0xFFFC，路由器会收不到，不知何解 
   if( AF_DataRequest( &broadcast_DstAddr, (endPointDesc_t *)&epDesc,
-                 LOCATION_ULTRA_BLORDCAST, 2,
+                 LOCATION_ULTRA_BLORDCAST, 1,
                  theMessageData, &transId,
                  0, 1        //AF_DISCV_ROUTE AF_DEFAULT_RADIUS    //设置为一跳,直接进行广播
                  ) == afStatus_SUCCESS)
@@ -270,6 +281,6 @@ void startBroadcast( void )
     P1_1 = ~P1_1;
   }  
   
-  uc_mobileID++;    //将移动节点的ID号自加，发送下一个移动节点的同步信号
+  //uc_mobileID++;    //将移动节点的ID号自加，发送下一个移动节点的同步信号
 }
 

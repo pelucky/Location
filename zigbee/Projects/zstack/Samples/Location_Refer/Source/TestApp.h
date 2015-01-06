@@ -30,10 +30,8 @@
  * MACROS
  */
 #define RECEVIE_ULTRA_EVENT                0x0001
-//#define RECV_TIMEOUT_EVT                   0x0002
+#define RECV_TIMEOUT_EVT                   0x0002
 #define REFER_DELAYSEND_EVT                0x0004
-//#define RECV_DELAY_EVT                     0x1000  //不能使用0x0008 可能是与其他事件有冲突
-
 
 /*********************************************************************
  * GLOBAL VARIABLES

@@ -78,5 +78,5 @@ void initP1()
    P1SEL &= ~0x03;              //将P1_0、P1_1置为GPIO
    P1DIR |= 0x03;               //将P1_0、P1_1置为输出
    Send_Ctrl = 0;
-   Cut_Off = 0;
+   //Cut_Off = 0;
 }

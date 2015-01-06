@@ -6,12 +6,12 @@
 
 #define the const
 TOTAL_DATA_LENGTH = int(7)    #define the total data length 4 + 3 = 7
-EACH_DATA_LENGTH = int(4)       #define the eahc data length is 4 bytes. 00 xx xx xx
+EACH_DATA_LENGTH = int(3)       #define the eahc data length is 4 bytes.  xx xx xx
 #define the position of the reffer node  [NodeNo,x,y,z]
 REFER_NODE_POSITION = [[1,0,0,120],[2,140,0,120],[3,0,280,120],[4,140,280,120]]
 
 #define the global variable
 lastSequenceNo = 0
 eachDistanceDict = {}
-tempurateData = 20              #the default tempurature is 20
+tempurateData = 22              #the default tempurature is 20
 

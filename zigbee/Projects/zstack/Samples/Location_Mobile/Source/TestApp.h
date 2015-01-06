@@ -34,16 +34,8 @@ extern "C"
  */
 
 // Blind Node's Events (bit masked)
-//#define MOBILE_DELAY_EVT               0x0001   //不能使用0x0008 可能是与其他事件有冲突
-#define MOBILE_TEMP_EVT                0x0002   //不能使用0x0008 可能是与其他事件有冲突
-  /*  
-#define MOBILE_BLAST_EVT                0x4000
-#define MOBILE_FIND_EVT                 0x2000
-#define MOBILE_WAIT_EVT                 0x1000
-#define MOBILE_HELP_EVT                 0x0002
-#define MOBILE_VDD_EVT                  0x0001
-#define MOBILE_CONFIG_EVT               0x0004
-*/
+#define MOBILE_TEMP_EVT                0x0001   //不能使用0x0008 可能是与其他事件有冲突
+
 /*********************************************************************
  * MACROS
  */

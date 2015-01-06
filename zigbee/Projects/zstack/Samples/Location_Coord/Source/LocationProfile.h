@@ -51,12 +51,10 @@
 
 
 //LOCATION_REFFR_POSITION_RSP
-//test
-//#define LOCATION_REFER_POSITION_RSP_LENGTH 		19//信息长度
-#define LOCATION_REFER_POSITION_RSP_LENGTH 		6//信息长度
+#define LOCATION_REFER_POSITION_RSP_LENGTH 		14//信息长度
+//#define LOCATION_REFER_POSITION_RSP_LENGTH 		6//信息长度
 #define LOCATION_REFER_POSITION_RSP_SEQUENCE            0//序列号
-#define LOCATION_REFER_POSITION_RSP_MOBID		1//移动节点ID
-#define LOCATION_REFER_POSITION_RSP_REFID		2//参考节点ID
+#define LOCATION_REFER_POSITION_RSP_REFID		1//参考节点ID
 #define LOCATION_REFER_POSITION_RSP_DSITANCE_HIGH		3//测量出来的距离
 #define LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD		4//测量出来的距离
 #define LOCATION_REFER_POSITION_RSP_DSITANCE_LOW		5//测量出来的距离
@@ -73,8 +71,7 @@
 #define     TIMEDIFF_MSG_TYPE                             0
 #define     TIMEDIFF_SEQUENCE                             1//序列号
 #define     TIMEDIFF_MOBID       			  2//ID号
-//后面未用
-#define     TIMEDIFF_FIXID       			  2//ID号
+
 #define     TIMEDIFF_TIMEDIFF_HIGH   			  3//时间差高八位
 #define     TIMEDIFF_TIMEDIFF_MIDD   			  4//时间差中八位
 #define     TIMEDIFF_TIMEDIFF_LOW   			  5//时间差低八位

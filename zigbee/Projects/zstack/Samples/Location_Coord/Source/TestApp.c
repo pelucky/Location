@@ -51,9 +51,10 @@
 //#define TIMEDIFF_MSG_LENGTH   7  //TIMEDIFF_MSG_LENGTH = 3 + 3 + 1;    时间差的长度 因为数组只能为常量
 //#define TEMP_MSG_LENGTH       3   //信息类型 温度值(需要除以100) \n
 #define MAX_DATA_LENGTH       16 //最长的数据是4*4 参考节点号(1) + 距离数据（3） 总共有4个节点 
-#define TOTAL_DATA_LENGTH     20 //MSG_TYPE + SEQ_NO + MOB_ID + 16 + '\n'
+#define TOTAL_DATA_LENGTH     16 //MSG_TYPE + SEQ_NO + MOB_ID + 12 + '\n'
 #define REFER_NODES_NUMBERS           4  //表示网络中有参考节点的个数
-
+#define MOBILE_NODES_NUMBERS          4  //表示网络中有移动节点的个数
+#define DELAY_SEND_TIMES              10 //表示每组数据延迟发送给上位机的时间间隔
 /*********************************************************************
  * GLOBAL VARIABLES
  */
@@ -63,12 +64,9 @@ unsigned int lastSeqNo = 0;
 unsigned int thisSeqNo = 0;
 unsigned int lastMobID = 0;
 unsigned int thisMobID = 0;
-unsigned int sameSeqTimes = 0;
-uint8 referDataBuf[MAX_DATA_LENGTH];
-bool b_existList[4];
-
-
-
+unsigned char delayTimes = 1;     //记录延迟发送的次数，一共需要延迟发送3次
+uint32 referDataBuf[MOBILE_NODES_NUMBERS+1][REFER_NODES_NUMBERS+1];    //5*5的矩阵，其中第一个用来判断是否已经存在
+uint8 buf[MOBILE_NODES_NUMBERS][TOTAL_DATA_LENGTH];         //缓存的发射数组
 /*********************************************************************
  * CONSTANTS
  */
@@ -212,11 +210,6 @@ UINT16 LocationDongle_ProcessEvent( uint8 task_id, UINT16 events )
           HalLedBlink(HAL_LED_2,1,50,200);
           //LocationDongle_MTMsg( ((mtSysAppMsg_t *)MSGpkt)->appDataLen, ((mtSysAppMsg_t *)MSGpkt)->appData );
           break;
-        /*
-        case KEY_CHANGE:
-          LocationHandleKeys(((keyChange_t *)MSGpkt)->keys );
-          break;
-        */
         case AF_INCOMING_MSG_CMD:
           LocationDongle_ProcessMSGCmd( MSGpkt );
           break;
@@ -238,50 +231,48 @@ UINT16 LocationDongle_ProcessEvent( uint8 task_id, UINT16 events )
     return ( events ^ SYS_EVENT_MSG );
   }
 
+  // send the data by delaying with 10ms*ID
+  if ( events & COOR_DELAYSEND_EVT )    
+  {
+    //由于c中无法获取一行数组，只能遍历获取，发送其他移动节点1的值
+    uint8 sendbuf[TOTAL_DATA_LENGTH];
+    int temp;
+    for(temp=0;temp<TOTAL_DATA_LENGTH;temp++)
+    {
+      sendbuf[temp] = buf[delayTimes][temp];
+    }
+    HalUARTWrite(HAL_UART_PORT_0,sendbuf,TOTAL_DATA_LENGTH);
+    
+    //完成发射后将清零
+    if(delayTimes == 3)
+    {
+      //将发送数组清零
+      int m,n;
+      for(m=0;m<MOBILE_NODES_NUMBERS;m++)
+      {
+        for(n=0;n<TOTAL_DATA_LENGTH;n++)
+        {
+          buf[m][n] = 0;     
+        }
+      }
+      delayTimes = 1;
+    }
+    //还未完成节点发射则设定定时器
+    else
+    {
+      delayTimes++;
+      osal_start_timerEx( LocationDongle_TaskID, COOR_DELAYSEND_EVT, DELAY_SEND_TIMES );
+    }
+       
+    // return unprocessed events
+    return ( events ^ COOR_DELAYSEND_EVT );
+  }
+  
   // Discard unknown events
   return 0;
 }
 
-/*********************************************************************
- * Event Generation Functions
- */
-/*********************************************************************
- * @fn      keyChange
- *
- * @brief   Handles all key events for this device.
- *
- * @param   keys - bit field for key events. Valid entries:
- *                 EVAL_SW4
- *                 EVAL_SW3
- *                 EVAL_SW2
- *                 EVAL_SW1
- *
- * @return  none
- */
-/*
-void LocationHandleKeys( uint8 keys )
-{
-  if ( keys & HAL_KEY_SW_1 )
-  {
-#if defined ( ZBIT )
-    osal_start_timerEx(LocationDongle_TaskID, DONGLE_TIMER_EVT, DONGLE_TIMER_DLY);
-    HalLedBlink(HAL_LED_1,1,50,100);
-#endif
-  }
 
-  if ( keys & HAL_KEY_SW_2 )
-  {
-  }
-
-  if ( keys & HAL_KEY_SW_3 )
-  {
-  }
-
-  if ( keys & HAL_KEY_SW_4 )
-  {
-  }
-}
-*/
 /*********************************************************************
  * @fn      LocationDongle_ProcessMSGCmd
  *
@@ -300,140 +291,83 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
   //pel+ 添加参考节点发射距离位置给协调器  
   case LOCATION_REFER_DISTANCE_RSP:
     thisSeqNo  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_SEQUENCE];
-    thisMobID = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_MOBID];
     
     //依据序列号和移动节点ID号是否相同来发射，移动节点或序列号不同则把数据交给串口
-    if (thisSeqNo != lastSeqNo || thisMobID != lastMobID)
+    if (thisSeqNo != lastSeqNo)
     {
-      //错误的数据会收到全FF，未收到超声波则使用全00填充
-
-      //初始化，判断是否存在
-      
-      
-      //unsigned int tempMsgLength;
-      //tempMsgLength = 3 + sameSeqTimes * 4;   //MSG_TYPE SEQ_NO 4*DATA '\n'
-      uint8 buf[TOTAL_DATA_LENGTH];
-      //uint8* buf;
-      //buf = osal_mem_alloc(tempMsgLength);        
-      buf[TIMEDIFF_MSG_TYPE]  = RP_BLOADCAST_TIME;
-      buf[TIMEDIFF_SEQUENCE]  = lastSeqNo;
-      buf[TIMEDIFF_MOBID]  = lastMobID;
-      int n;
-      for(n=0;n<sameSeqTimes;n++)
+      //将获取的值放进缓存数组
+      int mobileNo,refNo;
+      for(mobileNo=1;mobileNo<=MOBILE_NODES_NUMBERS;mobileNo++)
       {
-        buf[4*n+3] = referDataBuf[4*n];    
-        buf[4*n+4] = referDataBuf[4*n+1];      
-        buf[4*n+5] = referDataBuf[4*n+2];
-        buf[4*n+6] = referDataBuf[4*n+3];
-      }
-      
-      //未收到超声波的数据标记为0
-      if(sameSeqTimes != REFER_NODES_NUMBERS)
-      {
-        int i;
-        for(i=0;i<REFER_NODES_NUMBERS;i++)
+        buf[mobileNo-1][TIMEDIFF_MSG_TYPE] = RP_BLOADCAST_TIME;
+        buf[mobileNo-1][TIMEDIFF_SEQUENCE] = lastSeqNo;
+        buf[mobileNo-1][TIMEDIFF_MOBID]  = mobileNo;
+        for(refNo=1;refNo<=REFER_NODES_NUMBERS;refNo++)
         {
-          if(b_existList[i] != 1)
-          {
-            buf[4*n+3] = i+1;           //节点号 
-            buf[4*n+4] = 0;      
-            buf[4*n+5] = 0;
-            buf[4*n+6] = 0;
-            n++;
-          }
-        }
+          buf[mobileNo-1][refNo*3] = ((uint8 *)&referDataBuf[mobileNo][refNo])[2];        //时间差高八位 
+          buf[mobileNo-1][refNo*3+1] = ((uint8 *)&referDataBuf[mobileNo][refNo])[1];      //时间差中八位
+          buf[mobileNo-1][refNo*3+2] = ((uint8 *)&referDataBuf[mobileNo][refNo])[0];      //时间差低八位
+        } 
+        buf[mobileNo-1][15]  = '\n';
       }
-      buf[4*n+3] = '\n';
       
-      HalUARTWrite(HAL_UART_PORT_0,buf,TOTAL_DATA_LENGTH); 
-      //osal_mem_free( buf );
+      //由于c中无法获取一行数组，只能遍历获取，直接发送移动节点1的值
+      uint8 sendbuf[TOTAL_DATA_LENGTH];
+      int temp;
+      for(temp=0;temp<TOTAL_DATA_LENGTH;temp++)
+      {
+        sendbuf[temp] = buf[0][temp];
+      }
+      HalUARTWrite(HAL_UART_PORT_0,sendbuf,TOTAL_DATA_LENGTH); 
+      //设置定时器，延迟发送给上位机，防止串口处理堵塞
+      osal_start_timerEx( LocationDongle_TaskID, COOR_DELAYSEND_EVT, DELAY_SEND_TIMES );
       
       //清空发射缓存数组
-      for (n=0;n<MAX_DATA_LENGTH;n++)
+      int m,n;
+      for (m=0;m<=MOBILE_NODES_NUMBERS;m++)
       {
-        referDataBuf[n] = 0;
+        for (n=0;n<=REFER_NODES_NUMBERS;n++)
+        {
+          referDataBuf[m][n] = 0;
+        }
       }
-      //清空标记发射数组
-      for(n=0;n<4;n++)
-      {
-        b_existList[n]=0;
-      }
-      
-      /*
-      //发送错误码，表示获取的定位数少于3个
-      else
-      {
-        uint8 buf[ERROR_LESS_MSG_LENGTH];       //接收常数
-        buf[ERROR_LESS_MSG_TYPE] = RP_ERROR_DATA;
-        buf[ERROR_LESS_TYPE] = ERROR_LESS_DATA;
-        buf[ERROR_LESS_END] = '\n';
-    
-        HalUARTWrite(HAL_UART_PORT_0,buf,ERROR_LESS_MSG_LENGTH);
-      }
-      */
-      
+            
       //将这次获取不同序列号的存到发射缓存数组中
-      referDataBuf[0]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID];
-      referDataBuf[1]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_HIGH];
-      referDataBuf[2]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD];
-      referDataBuf[3]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_LOW];
-      //将存在列表置为1表示存在了
-      b_existList[(pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID])-1] = 1;
-      sameSeqTimes = 1;
+      referDataBuf[0][pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID]] = 1;
+      //将三个uint8的数据合成一个uint32的并存入数组中,直接<<16位会报警告，要将获取的值声明为32位长，否则会出现不够长的情况  
+      for(mobileNo=1;mobileNo<=MOBILE_NODES_NUMBERS;mobileNo++)
+      {
+        referDataBuf[mobileNo][pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID]] = \
+          (unsigned long)(pkt->cmd.Data[3*mobileNo-1])<<16 |      \
+          (unsigned long)(pkt->cmd.Data[3*mobileNo])<<8 |      \
+          (pkt->cmd.Data[3*mobileNo+1]);
+      }
     }
     else
     {
       //因为随着网络的增大，参考节点可能发送多条相同的数据信息给协调器，故要略去相同的数据
       bool b_exist = false;
-      int temp;
-      for(temp=0;temp<sameSeqTimes;temp++)
+      if(referDataBuf[0][pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID]] == 1)
       {
-        if(referDataBuf[4*temp] == pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID])
-        {
-          b_exist = true;
-        }
+        b_exist = true;
       }
+      
       if (b_exist == false)
       {
-        referDataBuf[4*sameSeqTimes]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID];
-        referDataBuf[1+4*sameSeqTimes]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_HIGH];
-        referDataBuf[2+4*sameSeqTimes]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD];
-        referDataBuf[3+4*sameSeqTimes]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_LOW];
-        b_existList[(pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID])-1] = 1;
-        sameSeqTimes++;
+        referDataBuf[0][pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID]] = 1;
+        //将三个uint8的数据合成一个uint32的并存入数组中
+        int mobileNo;
+        for(mobileNo=1;mobileNo<=MOBILE_NODES_NUMBERS;mobileNo++)
+        {
+          referDataBuf[mobileNo][pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_REFID]] = \
+            (unsigned long)(pkt->cmd.Data[3*mobileNo-1])<<16|      \
+            (unsigned long)(pkt->cmd.Data[3*mobileNo])<<8 |      \
+            (pkt->cmd.Data[3*mobileNo+1]);
+        }
       }
     }
     
-    lastSeqNo = thisSeqNo;
-    lastMobID = thisMobID;
-    
-    
-    /*
-    buf[TIMEDIFF_MSG_TYPE]      = RP_BLOADCAST_TIME;
-    buf[TIMEDIFF_SEQUENCE]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_SEQUENCE];
-    buf[TIMEDIFF_FIXID]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_FIXID];
-    buf[TIMEDIFF_TIMEDIFF_HIGH]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_HIGH];
-    buf[TIMEDIFF_TIMEDIFF_MIDD]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_MIDD];
-    buf[TIMEDIFF_TIMEDIFF_LOW]  = pkt->cmd.Data[LOCATION_REFER_POSITION_RSP_DSITANCE_LOW];
-    buf[TIMEDIFF_END] = '\n';
-    */
-    
-    /*
-    int n;
-    for(n=0;n<RECV_TIMES;n++)
-    {
-      buf[4*n+3] = pkt->cmd.Data[4*n+2];    //注意！参考节点是没有带MSG_TYPE，这个位数要注意
-      buf[4*n+4] = pkt->cmd.Data[4*n+3];      
-      buf[4*n+5] = pkt->cmd.Data[4*n+4];
-      buf[4*n+6] = pkt->cmd.Data[4*n+5];
-    }
-    buf[4*n+3] = '\n';
-    */
-
-    //HalUARTWrite(HAL_UART_PORT_0,buf,REFER_TIMEDIFF_MSG_LEN);
-    //HalUARTWrite(HAL_UART_PORT_0,buf,TIMEDIFF_MSG_LENGTH);
-    
-    
+    lastSeqNo = thisSeqNo;     
     break;  
     
     //pel+ 添加 移动节点发射温度信息给协调器  
@@ -449,112 +383,10 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
       
       break; 
     }
-    
-    /*
-    //pel+ 添加 移动节点发送出错的温度信息和参考节点发送出错的定位信息给协调器
-  case LOCATION_COOR_ERROR:
-  {
-    //Error_type为3表示是出错的温度数据，不需要序列号，故帧长度是4；
-    if (pkt->cmd.Data[0] == 3)
-    {
-      uint8 buf[ERROR_TEMP_MSG_LENGTH];       //接收常数
-      buf[ERROR_TEMP_MSG_TYPE] = RP_ERROR_DATA;
-      buf[ERROR_TEMP_TYPE] = pkt->cmd.Data[0];
-      buf[ERROR_TEMP_NODE_ID] = pkt->cmd.Data[1];
-      buf[ERROR_TEMP_END] = '\n';
-  
-      HalUARTWrite(HAL_UART_PORT_0,buf,ERROR_TEMP_MSG_LENGTH);
-    }
-    //Error_type不为3表示出错的是定位数据，需要序列号，故帧长度为5；
-    else
-    {
-      uint8 buf[ERROR_POS_MSG_LENGTH];       //接收常数
-      buf[ERROR_POS_MSG_TYPE] = RP_ERROR_DATA;
-      buf[ERROR_POS_TYPE] = pkt->cmd.Data[0];
-      buf[ERROR_POS_NODE_ID] = pkt->cmd.Data[1];
-      buf[ERROR_POS_SEQ_NO] = pkt->cmd.Data[2];
-      buf[ERROR_POS_END] = '\n';
-  
-      HalUARTWrite(HAL_UART_PORT_0,buf,ERROR_POS_MSG_LENGTH);
-    }
-    break;     
-  }  
- */ 
-    
   default:
     break;
   }
 }
-
-/*********************************************************************
- * @fn      LocationDongle_MTMsg
- *
- * @brief   Process Monitor and Test messages
- *
- * @param   len - number of bytes
- * @param   msg - pointer to message
- *          0 - Lo byte destination address
- *          1 - Hi byte destination address
- *          2 - endpoint
- *          3 - lo byte cluster ID
- *          4 - hi byte cluster ID
- *          5 - data length
- *          6 - first byte of data
- *
- * @return  none
- */
-
-/*
-void LocationDongle_MTMsg( uint8 len, uint8 *msg )
-{
-
-  afAddrType_t dstAddr;
-  cId_t clusterID;
-  uint8 msgType = msg[MSG_TYPE];
-  uint8 dataLen;
-  uint8 sendMsg[12];
-  //HalLcdWriteString( "TEST!", HAL_LCD_LINE_4 );
-
-  switch(msgType)
-  {
-    case MOBILE_CFG_MSG:
-          dstAddr.addr.shortAddr = BUILD_UINT16( msg[M_SELF_ADDR_LO], 
-                                                 msg[M_SELF_ADDR_HI] );
-          clusterID = LOCATION_MOBILE_CONFIG_REQ;
-          dstAddr.endPoint = LOCATION_MOBILE_ENDPOINT;
-          dataLen = LOCATION_MOBILE_CONFIG_REQ_LENGTH;
-          sendMsg[LOCATION_MOBILE_CONFIG_REQ_FIXID]     = msg[M_FIXID];
-          sendMsg[LOCATION_MOBILE_CONFIG_REQ_MODE]      = msg[M_LOC_MODE];
-          sendMsg[LOCATION_MOBILE_CONFIG_REQ_DSTADDR_H] = msg[M_DST_ADDR_HI];
-          sendMsg[LOCATION_MOBILE_CONFIG_REQ_DSTADDR_L] = msg[M_DST_ADDR_LO];
-          sendMsg[LOCATION_MOBILE_CONFIG_REQ_PERIOD]    = msg[M_LOC_PERIOD];
-    break;
-
-    case REFER_CFG_MSG:
-          dstAddr.addr.shortAddr = BUILD_UINT16( msg[R_NETID_LO], 
-                                                 msg[R_NETID_HI] );
-          clusterID = LOCATION_REFER_CONFIG_REQ;
-          dstAddr.endPoint = LOCATION_REFER_ENDPOINT;
-          dataLen = LOCATION_REFER_CONFIG_REQ_LENGTH;
-          sendMsg[LOCATION_REFER_CONFIG_REQ_X] = msg[R_POSITION_X];
-          sendMsg[LOCATION_REFER_CONFIG_REQ_Y] = msg[R_POSITION_Y];
-          sendMsg[LOCATION_REFER_CONFIG_REQ_PERIOD] = msg[R_TEMP_PERIOD];
-          sendMsg[LOCATION_REFER_CONFIG_REQ_DST_ADDR_HI] = msg[R_DST_ADDR_HI];
-          sendMsg[LOCATION_REFER_CONFIG_REQ_DST_ADDR_LO] = msg[R_DST_ADDR_LO];
-    break;
-
-    default:
-    break;
-  }
-
-  dstAddr.addrMode = afAddr16Bit;
-
-  (void)AF_DataRequest( &dstAddr, (endPointDesc_t*)&epDesc, 
-                        clusterID, dataLen, sendMsg,
-                        &LocationDongle_TransID, 0, AF_DEFAULT_RADIUS );
-}
-*/
-
 
 void SPIMgr_ProcessZToolData ( uint8 port, uint8 event )
 {

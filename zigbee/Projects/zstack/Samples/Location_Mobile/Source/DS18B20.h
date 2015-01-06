@@ -12,7 +12,6 @@
 #define DQ P1_2 
 #define SET_DQ_OUT P1DIR|=0x04    //设置P1_2为输出
 #define SET_DQ_IN P1DIR&=~0x04    //设置P1_2为输入
-#define SquareWaveTimes 10        //发射超声波脉冲的次数
 
 
 

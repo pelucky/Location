@@ -43,20 +43,9 @@
  * CONSTANTS
  */
 
-#define MOBILE_SEND_TIMES              4 //一次广播发射4次超声波信号
-
 #define MOBILE_TEMP_PERIOD    10000   //10s一次发送温度信息
-
 #define MOBILE_ID             1       //移动节点的ID号，每个移动节点的ID都不能相同
-
-//定时器1的初始化
-//#define TIMER1_INIT() do{ T1CTL = 0x0E; TIMIF = ~0x40;} while (0)  //设置为128分频和模模式，计数6250次就是25ms
-        
-//设置定时器1允许溢出中断
-//#define TIMER1_ENABLE_OVERFLOW_INT(val)  (TIMIF = (val)?(TIMIF|0x40):(TIMIF&~0x40))
-  
-//定时器1启动或关闭
-//#define TIMER1_RUN(value) (T1STAT=(value)?T1STAT|0x21:T1STAT&~0x21)
+#define DELAY_TIME            18      //延迟时间，实际延迟是2*DELAY_TIME ms，此处延迟是与参考节点延迟相同的时间
 
 /* 清除TIMER3和4中断标志位 */
 /********************************************************************/
@@ -79,7 +68,6 @@
 
 uint8 Mobile_TaskID;
 static uint8 transId;
-unsigned char sendTimes = 2;      //初始化，因为已经发射了两次了
 static unsigned char t3count = 0;
 
 /*********************************************************************
@@ -126,7 +114,6 @@ static const endPointDesc_t epDesc =
  */
 static void processMSGCmd( afIncomingMSGPacket_t *pckt );
 void startBroadcast( void );
-//void halSetTimer1Period(uint16 period);
 void halSetTimer3Period(uint8 period);
 
 
@@ -155,19 +142,12 @@ void Mobile_Init( uint8 task_id )
   //超声波设备初始化
   initP1();
   
-  //初始化定时器T1
-  //TIMER1_INIT();
-  //halSetTimer1Period(6250); //表示延迟25ms 注意：实际写入T1CC0寄存器的值应小于65536
-  //TIMER1_ENABLE_OVERFLOW_INT(TRUE);
-  //IEN1 |= (0x01 << 1);             // 使能Timer1的中断
-  //TIMER1_RUN(TRUE);
-  
   TIMER34_INIT(3);
   halSetTimer3Period(250); //表示延迟2ms 注意：实际写入T1CC0寄存器的值应小于255
   IEN1 |= (0x01 << 3);             // 使能Timer3的中断
   EA = 1;                      //开总使能
   
-  HAL_TURN_OFF_LED1();         // 熄灭LED_G、LED_R、LED_Y 不使用绿灯和红灯，因为板子使用了P1_0口和P1_1
+  HAL_TURN_OFF_LED1();         // 熄灭LED_G、LED_R、LED_Y 不使用绿灯，因为板子使用了P1_0口
   HAL_TURN_OFF_LED2();       
   HAL_TURN_OFF_LED3();
   
@@ -206,7 +186,6 @@ uint16 Mobile_ProcessEvent( uint8 task_id, uint16 events )
         /* Broadcast the X,Y location for any passive listeners in order to
          * register this node.
          */
-        //osal_start_timerEx( Mobile_TaskID, MOBILE_BROADCAST_EVT, MOBILE_BROADCAST_PERIOD );  //设置广播定时                                      
         
         //进入网络获取温度，并将其传到协调器
         //sendTemperature();
@@ -229,25 +208,7 @@ uint16 Mobile_ProcessEvent( uint8 task_id, uint16 events )
 
     return ( events ^ SYS_EVENT_MSG );  // Return unprocessed events.
   }
-  
-  /*
-  if ( events & MOBILE_DELAY_EVT )    
-  {
-    startBroadcast();             //调用发送广播事件
-    if(sendTimes == MOBILE_SEND_TIMES)
-    {
-      sendTimes = 2;
-    }
-    else
-    {
-      osal_start_timerEx( Mobile_TaskID, MOBILE_DELAY_EVT, MOBILE_DELAY_PERIOD );
-      sendTimes++;
-    }
-    
-    return ( events ^ MOBILE_DELAY_EVT );
-  }
-  */
-  
+
   if ( events & MOBILE_TEMP_EVT )    
   {
     sendTemperature();             //调用发送温度
@@ -274,13 +235,15 @@ static void processMSGCmd( afIncomingMSGPacket_t *pkt )
   {
   case LOCATION_ULTRA_BLORDCAST:
     {
-      //判断是否轮到了该节点发送广播信号
-      if( pkt->cmd.Data[1] == MOBILE_ID)
-      //P1_1 = 0;                 //测试使用
+      //1号移动节点直接发射超声波，不需要等待
+      if(MOBILE_ID == 1)
       {
-        //开启定时器T3计时，25ms
-        TIMER3_RUN(TRUE);     
         startBroadcast();
+      }
+      //其他节点开启定时器，等待(n-1)*24ms的时间，再发射超声波
+      else
+      {
+        TIMER3_RUN(TRUE);
       }
     }
     break;
@@ -303,15 +266,15 @@ void startBroadcast( void )
 {
  
   //先发射超声波，后发射电磁波，根据示波器，超声波之后大概2ms发射了电磁波
-  if (YelLedState == 0)
+  if (RedLedState == 0)
   {
-    HAL_TURN_ON_LED3();     //改变一次LED_Y的状态，表示正在发射超声波
-    YelLedState = 1;
+    HAL_TURN_ON_LED2();     //改变一次LED_Y的状态，表示正在发射超声波
+    RedLedState = 1;
   }
   else 
   {
-    HAL_TURN_OFF_LED3();
-    YelLedState = 0;
+    HAL_TURN_OFF_LED2();
+    RedLedState = 0;
   }
   
   EA = 0;                                       //关闭中断，避免中断引起烧管
@@ -320,22 +283,6 @@ void startBroadcast( void )
       
   //P1_1 = 1;  
 }
-
-/*********************************************************************
- * 函数名称：halSetTimer1Period
- * 功    能：设置定时器1定时周期
- * 入口参数：period   定时周期       
- * 出口参数：无
- * 返 回 值：无
- ********************************************************************/
-/*
-void halSetTimer1Period(uint16 period)
-{
-  // 给T1CC0写入最终计数值period 
-  T1CC0L = period & 0xFF;             // 把period的低8位值写入T1CC0L
-  T1CC0H = ((period & 0xFF00)>>8);    // 把period的高8位值写入T1CC0H
-}
-*/
 
 /*********************************************************************
  * 函数名称：halSetTimer3Period
@@ -349,45 +296,6 @@ void halSetTimer3Period(uint8 period)
   /* 给T3CC0写入最终计数值period */
   T3CC0 = period & 0xFF;             // 把period的值写入T3CC0
 }
-
-
-
-
-/*********************************************************************
- * 函数名称：T1_IRQ
- * 功    能：定时器1中断服务函数 注意入口函数与裸机中断入口函数不同 实际效果不理想，故舍去
- * 入口参数：无
- * 出口参数：无
- * 返 回 值：无
- ********************************************************************/
-/*
-//_PRAGMA(vector=T1_VECTOR) __near_func __interrupt void halTimer1Isr(void);  
-HAL_ISR_FUNCTION( halTimer1Isr, T1_VECTOR)
-{
-  IEN1 &= ~0x02;    //关闭定时器1中断使能
-  if(T1STAT & 0x21) //确认是否产生计时中断
-  {
-    startBroadcast();             //调用发送广播事件
-    if(sendTimes == MOBILE_SEND_TIMES)
-    {
-      sendTimes = 2;
-      //将定时器T1清0，为下次中断做准备
-      T1CNTL = 0;       //将计数值清0
-      TIMER1_RUN(FALSE);
-    }
-    else
-    {
-      sendTimes++;
-    }
-    
-  }
-  T1STAT &= ~0x21;  //清除定时器1的标志位
-  IRCON &= ~0x02;   //同上
-  IEN1 |= 0x02;    //打开定时器1中断使能
-  
-}
-*/
-
 
 /*********************************************************************
  * 函数名称：T3_IRQ
@@ -404,21 +312,14 @@ HAL_ISR_FUNCTION( halTimer3Isr, T3_VECTOR)
   if(TIMIF & 0x01) //确认是否产生计时中断
   {
     t3count++;
-    if(t3count == 12)     //2*12=24ms
+    if(t3count == DELAY_TIME*(MOBILE_ID-1))     //2*12=24ms
     {
       t3count = 0;
       startBroadcast();             //调用发送广播事件
-      if(sendTimes == MOBILE_SEND_TIMES)
-      {
-        sendTimes = 2;
-        //将定时器T1清0，为下次中断做准备
-        T3CTL |= 0x04;       //将计数值清0
-        TIMER3_RUN(FALSE);
-      }
-      else
-      {
-        sendTimes++;
-      }
+      
+      //将定时器T1清0，为下次中断做准备
+      TIMER3_RUN(FALSE);
+      T3CTL |= 0x04;       //将计数值清0
     }    
   }
   
@@ -427,6 +328,31 @@ HAL_ISR_FUNCTION( halTimer3Isr, T3_VECTOR)
   //IRCON &= ~0x02;   //同上
   IEN1 |= 0x03;    //打开定时器3中断使能
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

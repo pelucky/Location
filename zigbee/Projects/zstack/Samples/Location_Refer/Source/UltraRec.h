@@ -11,9 +11,6 @@
 static bool YelLed_State;      //黄灯状态，显示接收到了超声波
 static bool RedLed_State = 0;      //红灯状态，测试用
 
-static unsigned char ucGainNo;
-static unsigned int  uiGainTime[11] = {2380,2740,2750,2740,2740,2740,2750,2740,5490,5480,5490};     //计数器增长时间 uint32  ui_UltraArrivalTime;  //超声波传播到的时刻
-
 static bool bFirstRcv = 1;            //判断是否第一次接收
 
 //static bool bRFFirstRcv = TRUE;
