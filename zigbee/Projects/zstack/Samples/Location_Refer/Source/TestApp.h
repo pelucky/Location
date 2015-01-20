@@ -29,9 +29,8 @@
 /*********************************************************************
  * MACROS
  */
-#define RECEVIE_ULTRA_EVENT                0x0001
-#define RECV_TIMEOUT_EVT                   0x0002
-#define REFER_DELAYSEND_EVT                0x0004
+#define RECV_TIMEOUT_EVT                   0x0001
+#define REFER_DELAYSEND_EVT                0x0002
 
 /*********************************************************************
  * GLOBAL VARIABLES

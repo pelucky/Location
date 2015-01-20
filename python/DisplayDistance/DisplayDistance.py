@@ -150,8 +150,8 @@ def checkFitstData(argv):
     return hhex
 
 def getTempurate(argv):
-    hvolHigh = ord(argv[2])
-    hvolLow = ord(argv[1])
+    hvolHigh = ord(argv[1])
+    hvolLow = ord(argv[2])
     hhexHigh = '%02x'%hvolHigh
     hhexLow = '%02x'%hvolLow
     hhex = hhexHigh + hhexLow
@@ -196,7 +196,7 @@ def calcDistance(argv):
         finalDistance = 0
         print 'It cacl the error data!'
     else:
-        distanceData = round((argv * 31.25 / 10**7 )* (331.5 + 0.607 * 22) ,2)                  #globalVar.tempurateData caculte the average distace in the temputare of 5.0 C  the Unit is cm
+        distanceData = round((argv * 31.25 / 10**7 )* (331.5 + 0.607 * 21) ,2)                  #globalVar.tempurateData caculte the average distace in the temputare of 5.0 C  the Unit is cm
         print
         print 'Origan Average Data: ' + str(distanceData) + 'cm.',
         finalDistance = round(distanceData * 1 - 10,2)
