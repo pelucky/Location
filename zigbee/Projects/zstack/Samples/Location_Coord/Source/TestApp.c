@@ -289,8 +289,7 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
         case NT_SINK_NODE:
         {
           uint8 buf[C2PC_RP_BASIC_VALUE_LENGTH_S];       //接收常数
-          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_S] = MT_C2PC_RP_BASIC_VALUE;
-          buf[C2PC_RP_BASIC_VALUE_NODE_TYPE_S] = pkt->cmd.Data[S2C_RP_BASIC_VALUE_NODE_TYPE];
+          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_S] = MT_C2PC_RP_BASIC_VALUE_S;
           buf[C2PC_RP_BASIC_VALUE_BROAD_CYC_S] = pkt->cmd.Data[S2C_RP_BASIC_VALUE_BROAD_CYC];
           buf[C2PC_RP_BASIC_VALUE_END_S] = '\n';
           
@@ -306,8 +305,7 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
         case NT_MOB_NODE:
         {
           uint8 buf[C2PC_RP_BASIC_VALUE_LENGTH_M];       //接收常数
-          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_M] = MT_C2PC_RP_BASIC_VALUE;
-          buf[C2PC_RP_BASIC_VALUE_NODE_TYPE_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_NODE_TYPE];
+          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_M] = MT_C2PC_RP_BASIC_VALUE_M;
           buf[C2PC_RP_BASIC_VALUE_MOB_ID_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_MOB_ID];
           buf[C2PC_RP_BASIC_VALUE_TEAM_ID_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_TEAM_ID];
           buf[C2PC_RP_BASIC_VALUE_TEMP_CYC_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_TEMP_CYC];
@@ -326,8 +324,7 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
         case NT_REF_NODE:
         {
           uint8 buf[C2PC_RP_BASIC_VALUE_LENGTH_R];       //接收常数
-          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_R] = MT_C2PC_RP_BASIC_VALUE;
-          buf[C2PC_RP_BASIC_VALUE_NODE_TYPE_R] = pkt->cmd.Data[R2C_RP_BASIC_VALUE_NODE_TYPE];
+          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_R] = MT_C2PC_RP_BASIC_VALUE_R;
           buf[C2PC_RP_BASIC_VALUE_REF_ID_R] = pkt->cmd.Data[R2C_RP_BASIC_VALUE_REF_ID];
           buf[C2PC_RP_BASIC_VALUE_RECV_TIME_OUT_R] = pkt->cmd.Data[R2C_RP_BASIC_VALUE_RECV_TIME_OUT];
           buf[C2PC_RP_BASIC_VALUE_RECV_DELAY_TIME_R] = pkt->cmd.Data[R2C_RP_BASIC_VALUE_RECV_DELAY_TIME];
@@ -498,8 +495,7 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
         {
           //发送配置参数给上位机
           uint8 buf[C2PC_RP_BASIC_VALUE_LENGTH_C];       //接收常数
-          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_C] = MT_C2PC_RP_BASIC_VALUE;
-          buf[C2PC_RP_BASIC_VALUE_NODE_TYPE_C] = NT_COOR_NODE;
+          buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_C] = MT_C2PC_RP_BASIC_VALUE_C;
           buf[C2PC_RP_BASIC_VALUE_DELAY_TIME_C] = delay_send_times;        
           buf[C2PC_RP_BASIC_VALUE_END_C] = '\n';
           
@@ -544,91 +540,83 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       break;
     }
     
-    //上位机向协调器发出设置节点配置信息
-    case MT_PC2C_SET_BASIC_VALUE:
-    {
-      unsigned char nodeType = msg[1];   //所有设置节点配置信息的第二个字节都是节点类型
-      switch(nodeType)
-      {
-        case NT_COOR_NODE:
-        {
-          //将设置信息写入coor节点
-          delay_send_times = msg[PC2C_SET_BASIC_VALUE_DELAY_TIME_C];
-          
-          //发送配置成功响应给上位机
-          uint8 buf[C2PC_SUCCESS_RESPONSE_LENGTH];       //接收常数
-          buf[C2PC_SUCCESS_RESPONSE_MSG_TYPE] = MT_C2PC_SUCCESS_RESPONSE;
-          buf[C2PC_SUCCESS_RESPONSE_NODE_TYPE] = NT_COOR_NODE;
-          buf[C2PC_SUCCESS_RESPONSE_NODE_ID] = 1;         //协调器只有一个，故写1
-          buf[C2PC_SUCCESS_RESPONSE_RESULT] = 1;          //结果：1，表示成功，0表示失败
-          buf[C2PC_SUCCESS_RESPONSE_END] = '\n';
+    /*所有设置节点配置信息的第二个字节都是帧类型，其中包括了节点类型*/
+    //上位机向协调器发出设置协调器节点配置信息  
+    case MT_PC2C_SET_BASIC_VALUE_C:
+    {  
+      //将设置信息写入coor节点
+      delay_send_times = msg[PC2C_SET_BASIC_VALUE_DELAY_TIME_C];
       
-          //收到配置信息闪烁绿灯3次，每次300ms
-          HalLedBlink(HAL_LED_1, 3, 50, 300);
-          
-          HalUARTWrite(HAL_UART_PORT_0,buf,C2PC_SUCCESS_RESPONSE_LENGTH);
-          break;
-        }
+      //发送配置成功响应给上位机
+      uint8 buf[C2PC_SUCCESS_RESPONSE_LENGTH];       //接收常数
+      buf[C2PC_SUCCESS_RESPONSE_MSG_TYPE] = MT_C2PC_SUCCESS_RESPONSE;
+      buf[C2PC_SUCCESS_RESPONSE_NODE_TYPE] = NT_COOR_NODE;
+      buf[C2PC_SUCCESS_RESPONSE_NODE_ID] = 1;         //协调器只有一个，故写1
+      buf[C2PC_SUCCESS_RESPONSE_RESULT] = 1;          //结果：1，表示成功，0表示失败
+      buf[C2PC_SUCCESS_RESPONSE_END] = '\n';
+  
+      //收到配置信息闪烁绿灯3次，每次300ms
+      HalLedBlink(HAL_LED_1, 3, 50, 300);
+      
+      HalUARTWrite(HAL_UART_PORT_0,buf,C2PC_SUCCESS_RESPONSE_LENGTH);
+      break;
+    }
+    
+    //上位机向协调器发出设置sink节点配置信息  
+    case MT_PC2C_SET_BASIC_VALUE_S:
+    {
+      //将设置节点配置信息发给的sink节点
+      unsigned char theMessageData[C2S_SET_BASIC_VALUE_LENGTH];     
+      theMessageData[C2S_SET_BASIC_VALUE_BROAD_CYC] = msg[PC2C_SET_BASIC_VALUE_BROAD_CYC_S];
+      
+      afAddrType_t sinkAddr;
+      sinkAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
+      sinkAddr.endPoint = LOCATION_SINK_ENDPOINT; //目的端口号
+      sinkAddr.addr.shortAddr = BUILD_UINT16(sinkNetAddr[1],sinkNetAddr[0]);
+      AF_DataRequest( &sinkAddr, (endPointDesc_t *)&epDesc,
+                               CID_C2A_SET_BASIC_VALUE, C2S_SET_BASIC_VALUE_LENGTH,
+                               theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );    
+      break;
+    }
+    
+    //上位机向协调器发出设置mobile节点配置信息  
+    case MT_PC2C_SET_BASIC_VALUE_M:
+    {
+      //将设置节点配置信息发给的mobile节点
+      unsigned char theMessageData[C2M_SET_BASIC_VALUE_LENGTH];     
+      theMessageData[C2M_SET_BASIC_VALUE_MOB_ID] = msg[PC2C_SET_BASIC_VALUE_MOB_ID_M];
+      theMessageData[C2M_SET_BASIC_VALUE_TEAM_ID] = msg[PC2C_SET_BASIC_VALUE_TEAM_ID_M];
+      theMessageData[C2M_SET_BASIC_VALUE_TEMP_CYC] = msg[PC2C_SET_BASIC_VALUE_TEMP_CYC_M];
+      theMessageData[C2M_SET_BASIC_VALUE_SEND_DELAY_TIME] = msg[PC2C_SET_BASIC_VALUE_SEND_DELAY_TIME_M];
+      
+      afAddrType_t mobileAddr;
+      mobileAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
+      mobileAddr.endPoint = LOCATION_MOBILE_ENDPOINT; //目的端口号
+      mobileAddr.addr.shortAddr = BUILD_UINT16(mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
+                                               mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
+      AF_DataRequest( &mobileAddr, (endPointDesc_t *)&epDesc,
+                               CID_C2A_SET_BASIC_VALUE, C2M_SET_BASIC_VALUE_LENGTH,
+                               theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
+      break;
+    }
         
-        case NT_SINK_NODE:
-        {
-          //将设置节点配置信息发给的sink节点
-          unsigned char theMessageData[C2S_SET_BASIC_VALUE_LENGTH];     
-          theMessageData[C2S_SET_BASIC_VALUE_BROAD_CYC] = msg[PC2C_SET_BASIC_VALUE_BROAD_CYC_S];
-          
-          afAddrType_t sinkAddr;
-          sinkAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
-          sinkAddr.endPoint = LOCATION_SINK_ENDPOINT; //目的端口号
-          sinkAddr.addr.shortAddr = BUILD_UINT16(sinkNetAddr[1],sinkNetAddr[0]);
-          AF_DataRequest( &sinkAddr, (endPointDesc_t *)&epDesc,
-                                   CID_C2A_SET_BASIC_VALUE, C2S_SET_BASIC_VALUE_LENGTH,
-                                   theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );    
-          break;
-        }
-        
-        case NT_MOB_NODE:
-        {
-          //将设置节点配置信息发给的mobile节点
-          unsigned char theMessageData[C2M_SET_BASIC_VALUE_LENGTH];     
-          theMessageData[C2M_SET_BASIC_VALUE_MOB_ID] = msg[PC2C_SET_BASIC_VALUE_MOB_ID_M];
-          theMessageData[C2M_SET_BASIC_VALUE_TEAM_ID] = msg[PC2C_SET_BASIC_VALUE_TEAM_ID_M];
-          theMessageData[C2M_SET_BASIC_VALUE_TEMP_CYC] = msg[PC2C_SET_BASIC_VALUE_TEMP_CYC_M];
-          theMessageData[C2M_SET_BASIC_VALUE_SEND_DELAY_TIME] = msg[PC2C_SET_BASIC_VALUE_SEND_DELAY_TIME_M];
-          
-          afAddrType_t mobileAddr;
-          mobileAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
-          mobileAddr.endPoint = LOCATION_MOBILE_ENDPOINT; //目的端口号
-          mobileAddr.addr.shortAddr = BUILD_UINT16(mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
-                                                   mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
-          AF_DataRequest( &mobileAddr, (endPointDesc_t *)&epDesc,
-                                   CID_C2A_SET_BASIC_VALUE, C2M_SET_BASIC_VALUE_LENGTH,
-                                   theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
-          break;
-        }
-        
-        case NT_REF_NODE:
-        {
-          //将设置节点配置信息发给的refer节点
-          unsigned char theMessageData[C2R_SET_BASIC_VALUE_LENGTH];     
-          theMessageData[C2R_SET_BASIC_VALUE_REF_ID] = msg[PC2C_SET_BASIC_VALUE_REF_ID_R];
-          theMessageData[C2R_SET_BASIC_VALUE_RECV_TIME_OUT] = msg[PC2C_SET_BASIC_VALUE_RECV_TIME_OUT_R];
-          theMessageData[C2R_SET_BASIC_VALUE_RECV_DELAY_TIME] = msg[PC2C_SET_BASIC_VALUE_RECV_DELAY_TIME_R];
-          
-          afAddrType_t referAddr;
-          referAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
-          referAddr.endPoint = LOCATION_REFER_ENDPOINT; //目的端口号
-          referAddr.addr.shortAddr = BUILD_UINT16(referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
-                                                  referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
-          AF_DataRequest( &referAddr, (endPointDesc_t *)&epDesc,
-                                   CID_C2A_SET_BASIC_VALUE, C2R_SET_BASIC_VALUE_LENGTH,
-                                   theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
-          break;
-        }
-        
-        default:
-        break;
-
-      }
+    //上位机向协调器发出设置refer节点配置信息  
+    case MT_PC2C_SET_BASIC_VALUE_R:
+    {
+      //将设置节点配置信息发给的refer节点
+      unsigned char theMessageData[C2R_SET_BASIC_VALUE_LENGTH];     
+      theMessageData[C2R_SET_BASIC_VALUE_REF_ID] = msg[PC2C_SET_BASIC_VALUE_REF_ID_R];
+      theMessageData[C2R_SET_BASIC_VALUE_RECV_TIME_OUT] = msg[PC2C_SET_BASIC_VALUE_RECV_TIME_OUT_R];
+      theMessageData[C2R_SET_BASIC_VALUE_RECV_DELAY_TIME] = msg[PC2C_SET_BASIC_VALUE_RECV_DELAY_TIME_R];
+      
+      afAddrType_t referAddr;
+      referAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
+      referAddr.endPoint = LOCATION_REFER_ENDPOINT; //目的端口号
+      referAddr.addr.shortAddr = BUILD_UINT16(referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
+                                              referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
+      AF_DataRequest( &referAddr, (endPointDesc_t *)&epDesc,
+                               CID_C2A_SET_BASIC_VALUE, C2R_SET_BASIC_VALUE_LENGTH,
+                               theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
       break;
     }
     
