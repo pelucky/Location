@@ -27,12 +27,11 @@
 #define CID_S2MR_BROADCAST                    0x0014//sink节点向mobile和refer节点广播信号
 #define CID_M2M_TEAM_DATA                     0x0015//mobile节点向其他mobile节点发送队伍信号
 #define CID_M2M_TEAM_CONTROL                  0x0016//mobile节点向其他mobile节点发送控制信号
-#define CID_M2C_TEMPERATURE                   0x0017//mobile节点向coor节点发送温度数据
-#define CID_M2C_REQ_POSITION                  0x0018//mobile节点向coor节点发出位置查询请求
-#define CID_C2M_RP_POSITION                   0x0019//coor节点向mobile发出位置查询响应
-#define CID_C2M_SET_JUDGE                     0x001A//coor节点向mobile发出起始命令
-#define CID_R2C_DIFF_TIME                     0x001B//refer节点发时间差给coor节点
-
+#define CID_M2C_REQ_POSITION                  0x0017//mobile节点向coor节点发出位置查询请求
+#define CID_C2M_RP_POSITION                   0x0018//coor节点向mobile发出位置查询响应
+#define CID_C2M_SET_JUDGE                     0x0019//coor节点向mobile发出起始命令
+#define CID_R2C_DIFF_TIME                     0x001A//refer节点发时间差给coor节点
+#define CID_S2C_TEMPERATURE                   0x001B//sink节点向coor节点发送温度数据
 
 
 
@@ -101,18 +100,18 @@
 #define C2PC_RP_BASIC_VALUE_DELAY_TIME_C  1 //延迟发送给上位机的时间
 #define C2PC_RP_BASIC_VALUE_END_C         2 //终止符\n
 //S的基本信息帧
-#define C2PC_RP_BASIC_VALUE_LENGTH_S      3 //帧长度
+#define C2PC_RP_BASIC_VALUE_LENGTH_S      4 //帧长度
 #define C2PC_RP_BASIC_VALUE_MSG_TYPE_S    0 //帧类型
 #define C2PC_RP_BASIC_VALUE_BROAD_CYC_S   1 //Sink节点的广播周期
-#define C2PC_RP_BASIC_VALUE_END_S         2 //终止符\n
+#define C2PC_RP_BASIC_VALUE_TEMP_CYC_S    2 //Sink节点发送温度周期
+#define C2PC_RP_BASIC_VALUE_END_S         3 //终止符\n
 //M的基本信息帧
-#define C2PC_RP_BASIC_VALUE_LENGTH_M           6 //帧长度
+#define C2PC_RP_BASIC_VALUE_LENGTH_M           5 //帧长度
 #define C2PC_RP_BASIC_VALUE_MSG_TYPE_M         0 //帧类型
 #define C2PC_RP_BASIC_VALUE_MOB_ID_M           1 //移动节点ID号
 #define C2PC_RP_BASIC_VALUE_TEAM_ID_M          2 //移动节点队伍ID号
-#define C2PC_RP_BASIC_VALUE_TEMP_CYC_M         3 //移动节点发送温度周期
-#define C2PC_RP_BASIC_VALUE_SEND_DELAY_TIME_M  4 //移动节点发送延迟周期
-#define C2PC_RP_BASIC_VALUE_END_M              5 //终止符\n
+#define C2PC_RP_BASIC_VALUE_SEND_DELAY_TIME_M  3 //移动节点发送延迟周期
+#define C2PC_RP_BASIC_VALUE_END_M              4 //终止符\n
 //R的基本信息帧
 #define C2PC_RP_BASIC_VALUE_LENGTH_R           5 //帧长度
 #define C2PC_RP_BASIC_VALUE_MSG_TYPE_R         0 //帧类型
@@ -141,16 +140,16 @@
 #define PC2C_SET_BASIC_VALUE_MSG_TYPE_C    0 //帧类型
 #define PC2C_SET_BASIC_VALUE_DELAY_TIME_C  1 //延迟发送给上位机的时间
 //设置S的基本信息帧
-#define PC2C_SET_BASIC_VALUE_LENGTH_S      2 //帧长度
+#define PC2C_SET_BASIC_VALUE_LENGTH_S      3 //帧长度
 #define PC2C_SET_BASIC_VALUE_MSG_TYPE_S    0 //帧类型
 #define PC2C_SET_BASIC_VALUE_BROAD_CYC_S   1 //Sink节点的广播周期
+#define PC2C_SET_BASIC_VALUE_TEMP_CYC_S    2 //Sink节点发送温度周期
 //设置M的基本信息帧
-#define PC2C_SET_BASIC_VALUE_LENGTH_M           5 //帧长度
+#define PC2C_SET_BASIC_VALUE_LENGTH_M           4 //帧长度
 #define PC2C_SET_BASIC_VALUE_MSG_TYPE_M         0 //帧类型
 #define PC2C_SET_BASIC_VALUE_MOB_ID_M           1 //移动节点ID号
 #define PC2C_SET_BASIC_VALUE_TEAM_ID_M          2 //移动节点队伍ID号
-#define PC2C_SET_BASIC_VALUE_TEMP_CYC_M         3 //移动节点发送温度周期
-#define PC2C_SET_BASIC_VALUE_SEND_DELAY_TIME_M  4 //移动节点发送延迟周期
+#define PC2C_SET_BASIC_VALUE_SEND_DELAY_TIME_M  3 //移动节点发送延迟周期
 //设置R的基本信息帧
 #define PC2C_SET_BASIC_VALUE_LENGTH_R           4 //帧长度
 #define PC2C_SET_BASIC_VALUE_MSG_TYPE_R         0 //帧类型
@@ -176,20 +175,27 @@
 
 /*S2C*/
 //响应基本配置信息
-#define S2C_RP_BASIC_VALUE_LENGTH       2 //帧长度
+#define S2C_RP_BASIC_VALUE_LENGTH       3 //帧长度
 #define S2C_RP_BASIC_VALUE_NODE_TYPE    0 //节点类型
 #define S2C_RP_BASIC_VALUE_BROAD_CYC    1 //Sink节点的广播周期
+#define S2C_RP_BASIC_VALUE_TEMP_CYC     2 //Sink节点发送温度周期
+
+//发送温度信息
+#define S2C_TEMPERATURE_DATA_LENGTH     2 //帧长度
+#define S2C_TEMPERATURE_DATA_HIGH       0 //温度数据高8位
+#define S2C_TEMPERATURE_DATA_LOW        1 //温度数据低8位
 
 /*C2S*/
 //设置基本信息帧
-#define C2S_SET_BASIC_VALUE_LENGTH       1 //帧长度
+#define C2S_SET_BASIC_VALUE_LENGTH       2 //帧长度
 #define C2S_SET_BASIC_VALUE_BROAD_CYC    0 //Sink节点的广播周期
+#define C2S_SET_BASIC_VALUE_TEMP_CYC     1 //Sink节点发送温度周期
 
 /*M2M*/
 //接收or发送本队其他移动节点的队伍信息
 #define M2M_TEAM_DATA_LENGTH            2 //帧长度
-#define M2M_TEAM_DATA_TEAM_ID           1 //移动节点队伍ID号
-#define M2M_TEAM_DATA_MOB_ID            0 //移动节点ID号
+#define M2M_TEAM_DATA_TEAM_ID           0 //移动节点队伍ID号
+#define M2M_TEAM_DATA_MOB_ID            1 //移动节点ID号
 
 //接收or发送本队其他移动节点的控制信息  
 #define M2M_TEAM_CONTROL_LENGTH         4 //帧长度
@@ -201,17 +207,11 @@
 
 /*M2C*/
 //响应基本配置信息
-#define M2C_RP_BASIC_VALUE_LENGTH           5 //帧长度
+#define M2C_RP_BASIC_VALUE_LENGTH           4 //帧长度
 #define M2C_RP_BASIC_VALUE_NODE_TYPE        0 //节点类型
 #define M2C_RP_BASIC_VALUE_MOB_ID           1 //移动节点ID号
 #define M2C_RP_BASIC_VALUE_TEAM_ID          2 //移动节点队伍ID号
-#define M2C_RP_BASIC_VALUE_TEMP_CYC         3 //移动节点发送温度周期
-#define M2C_RP_BASIC_VALUE_SEND_DELAY_TIME  4 //移动节点发送延迟周期
-
-//发送温度信息
-#define M2C_TEMPERATURE_DATA_LENGTH     2 //帧长度
-#define M2C_TEMPERATURE_DATA_HIGH       0 //温度数据高8位
-#define M2C_TEMPERATURE_DATA_LOW        1 //温度数据低8位
+#define M2C_RP_BASIC_VALUE_SEND_DELAY_TIME  3 //移动节点发送延迟周期
 
 //节点位置请求信息
 #define M2C_REQ_POSITION_LENGTH         2 //帧长度
@@ -220,11 +220,10 @@
 
 /*C2M*/
 //设置基本信息帧
-#define C2M_SET_BASIC_VALUE_LENGTH            4 //帧长度
+#define C2M_SET_BASIC_VALUE_LENGTH            3 //帧长度
 #define C2M_SET_BASIC_VALUE_MOB_ID            0 //移动节点ID号
 #define C2M_SET_BASIC_VALUE_TEAM_ID           1 //移动节点队伍ID号
-#define C2M_SET_BASIC_VALUE_TEMP_CYC          2 //移动节点发送温度周期
-#define C2M_SET_BASIC_VALUE_SEND_DELAY_TIME   3 //移动节点发送延迟周期
+#define C2M_SET_BASIC_VALUE_SEND_DELAY_TIME   2 //移动节点发送延迟周期
 
 //获取移动节点位置的请求信息帧
 #define C2M_RP_POSITION_LENGTH           5 //帧长度

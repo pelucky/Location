@@ -15,7 +15,7 @@ static bool bFirstRcv = 1;            //判断是否第一次接收
 
 //static bool bRFFirstRcv = TRUE;
 
-static bool bRcvFinish = 0;          //判断是否接收完毕
+//static bool bRcvFinish = 0;          //判断是否接收完毕
 
 //static uint32 ui_T4Overflow = 0;      //定时器4的溢出次数
 //static unsigned int ui_T4Count;             //定时器4的计数值
@@ -47,9 +47,9 @@ void initP0();
 #define GCD    P0_5 
 #define Inhi   P0_7
 
-#define TIME_OUT 15     //最长时间，比15还大还未接收到就算超时
+//#define TIME_OUT 15     //最长时间，比15还大还未接收到就算超时
 
-#define INHIBIT_TIME 880  //最短允许距离30cm
+//#define INHIBIT_TIME 880  //最短允许距离30cm
 
 /*定时器1初始化*/ 
 //32分频 modulo模式 一次32M/32=1M 一次计数就是1us

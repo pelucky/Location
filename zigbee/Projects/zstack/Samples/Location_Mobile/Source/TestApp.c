@@ -34,8 +34,7 @@
 #include "LocationProfile.h"
 #include "TestApp.h"
 #include "UltraSend.h"
-#include "DS18B20.h"
-#include "math.h"         //pel+ pow(,)
+
 
 #include "mac_mcu.h"      //调试测试发射超声波和电磁波的时间差
 
@@ -65,10 +64,9 @@
 uint8 Mobile_TaskID;
 static uint8 transId;
 static unsigned char t3count = 0;
-unsigned char mobile_temp_cycle  = 10;                     //单位为秒，在实际使用时，需要*1000，因为函数单位ms；
 unsigned char mobile_id = 4;                               //移动节点的ID号，每个移动节点的ID都不能相同
 unsigned char team_id = 2;                                 //移动节点队伍的ID号，要记得修改！默认时1和2号是队伍1,3和4是队伍2
-unsigned char delay_time = 18;                             //延迟时间，实际延迟是2*delay_time ms，此处延迟是与参考节点延迟相同的时间
+unsigned char delay_time = 50;                             //延迟时间，实际延迟是2*delay_time ms，此处延迟是与参考节点延迟相同的时间
 uint8 teamMobileData[4][2] = {{0,0},{0,0},{0,0},{0,0}};    //默认是一个队友，,最多有3个，第0行就为1号移动节点，第1行就为2号，以此类推。第一字节为网络地址高八位，第二字节位网络地址低八位
 /*********************************************************************
  * LOCAL VARIABLES
@@ -90,7 +88,6 @@ static const cId_t Mobile_OutputClusterList[] =
 {
   CID_M2M_TEAM_DATA,
   CID_M2M_TEAM_CONTROL,
-  CID_M2C_TEMPERATURE,        //发送温度给协调器
   CID_M2C_REQ_POSITION,
   CID_A2C_RP_BASIC_VALUE,
   CID_A2C_SUCCESS_RESPONSE
@@ -181,7 +178,7 @@ void halSetTimer3Period(uint8 period)
 
 /*********************************************************************
  * 函数名称：T3_IRQ
- * 功    能：定时器1中断服务函数 注意入口函数与裸机中断入口函数不同 实际效果不理想，故舍去
+ * 功    能：定时器3中断服务函数 注意入口函数与裸机中断入口函数不同
  * 入口参数：无
  * 出口参数：无
  * 返 回 值：无
@@ -194,7 +191,7 @@ HAL_ISR_FUNCTION( halTimer3Isr, T3_VECTOR)
   if(TIMIF & 0x01) //确认是否产生计时中断
   {
     t3count++;
-    if(t3count == delay_time*(mobile_id-1))     //2*12=24ms
+    if(t3count == delay_time*(mobile_id-1))     //2*18=36ms
     {
       t3count = 0;
       startSendUS();             //调用发送超声波事件
@@ -242,11 +239,7 @@ uint16 Mobile_ProcessEvent( uint8 task_id, uint16 events )
         //初始化时将基本数据发送给协调器          
         getBasicValue();
         //初始化广播该节点的基本队伍信息给其他节点
-        sendTeamData((afAddrMode_t)AddrBroadcast,0xFF,0xFF);
-        
-        //进入网络获取温度，并将其传到协调器
-        //sendTemperature();
-        //osal_start_timerEx( Mobile_TaskID, MOBILE_TEMP_EVT, mobile_temp_cycle*1000 );  //设置周期发送温度信息定时    
+        sendTeamData((afAddrMode_t)AddrBroadcast,0xFF,0xFF);   
         break;
       }
 
@@ -262,14 +255,6 @@ uint16 Mobile_ProcessEvent( uint8 task_id, uint16 events )
     }
 
     return ( events ^ SYS_EVENT_MSG );  // Return unprocessed events.
-  }
-
-  if ( events & MOBILE_TEMP_EVT )    
-  {
-    sendTemperature();             //调用发送温度
-    osal_start_timerEx( Mobile_TaskID, MOBILE_TEMP_EVT, mobile_temp_cycle*1000 );
-    
-    return ( events ^ MOBILE_TEMP_EVT );
   }
   
   return 0;  // Discard unknown events.
@@ -296,7 +281,7 @@ static void processMSGCmd( afIncomingMSGPacket_t *pkt )
       {
         startSendUS();
       }
-      //其他节点开启定时器，等待(n-1)*24ms的时间，再发射超声波
+      //其他节点开启定时器，等待(n-1)*36ms的时间，再发射超声波
       else
       {
         TIMER3_RUN(TRUE);
@@ -417,7 +402,6 @@ void getBasicValue()
   theMessageData[M2C_RP_BASIC_VALUE_NODE_TYPE] = NT_MOB_NODE;
   theMessageData[M2C_RP_BASIC_VALUE_MOB_ID] = mobile_id;
   theMessageData[M2C_RP_BASIC_VALUE_TEAM_ID] = team_id;
-  theMessageData[M2C_RP_BASIC_VALUE_TEMP_CYC] = mobile_temp_cycle;
   theMessageData[M2C_RP_BASIC_VALUE_SEND_DELAY_TIME] = delay_time * 2;        //同refer节点，需要乘以2
   
   afAddrType_t coorAddr;
@@ -443,7 +427,6 @@ void setBasicValue(afIncomingMSGPacket_t *pkt)
   //将协调器发送过来的配置写入mobile节点中
   mobile_id = pkt->cmd.Data[C2M_SET_BASIC_VALUE_MOB_ID];
   team_id = pkt->cmd.Data[C2M_SET_BASIC_VALUE_TEAM_ID];
-  mobile_temp_cycle = pkt->cmd.Data[C2M_SET_BASIC_VALUE_TEMP_CYC];
   delay_time = pkt->cmd.Data[C2M_SET_BASIC_VALUE_SEND_DELAY_TIME] / 2;    //同refer节点，需要除以2
 
   //将接受成功的消息发回给协调器
@@ -606,252 +589,3 @@ void sendTeamControl(uint8 get_mob_id, uint8 action_HI, uint8 action_LO)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*************************************************************************************************************
-DS18B20的程序
-*******************************************************************/
-/*********************************************************************
- * 函数名称：initDS18B20
- * 功    能：初始化P1_0、P1_1端口为输出GPIO,因为查看所得，只有该两个端口输出电流可达20mA
- * 入口参数：无
- * 出口参数：无
- * 返 回 值：无
- ********************************************************************/
-void init_1820()
-{
-  SET_DQ_OUT;   //将DQ设置为输出
-  DQ = 0;       //将DQ置为低电平至少480u
-  halMcuWaitUs(550);
-  DQ = 1;       //置高
-  
-  SET_DQ_IN;    //将DQ设置为输入
-  
-  halMcuWaitUs(40); //释放总线后等待15-60us
-  while(DQ)     //等待回复,读取DQ的值变为1
-  {
-
-  }  
-  
-  halMcuWaitUs(200);
-  SET_DQ_OUT;
-  DQ = 1;       //回到初始DQ=1；
-  
-  halMcuWaitUs(1); //延迟1us
-   
-}
-
-
-/*********************************************************************
- * 函数名称：sendTemperature
- * 功    能：获取温度，并将数据转换 
- * 入口参数：无
- * 出口参数：温度值
- * 返 回 值：无
- ********************************************************************/
-void sendTemperature(void)
-{
-  static uint16 sensor_temperature_value;
-  sensor_temperature_value = read_data(); // 获取温度值
-  
-  float temperature=0.0;
-  int n;
-  uint16 roll = 0x0800;
-  for(n=7;n>=-4;n--)
-  {
-    if(sensor_temperature_value&roll)
-    {
-      temperature += pow(2,n);
-    }
-     roll = roll>>1;
-  }
-  
-                
-  uint16 tempData;
-  tempData = (int)(temperature*100);
-  unsigned char moblieNodeTemperature[2]; 
-  if (temperature >0 && temperature < 40)  //错误的数据不进行发送
-  {
-    moblieNodeTemperature[0] = ((uint8 *)&tempData)[1];      //温度高位 
-    moblieNodeTemperature[1] = ((uint8 *)&tempData)[0];      //温度低位
-    //moblieNodeTemperature[0] = ((uint8 *)&sensor_temperature_value)[1];      //温度高位 
-    //moblieNodeTemperature[1] = ((uint8 *)&sensor_temperature_value)[0];      //温度低位
-   }
-  
-  //错误的数据将数据填充为0xFFFF
-  else
-  {
-    moblieNodeTemperature[0] = 0xFF;      //温度高位 
-    moblieNodeTemperature[1] = 0xFF;      //温度低位
-  }
-  
-  afAddrType_t Coord_DstAddr;
-  Coord_DstAddr.addrMode = (afAddrMode_t)Addr16Bit;
-  Coord_DstAddr.endPoint = LOCATION_DONGLE_ENDPOINT;
-  Coord_DstAddr.addr.shortAddr = 0x0000;  //表示数据包发往网络中的所有节点广播，设置0xFFFC，路由器会收不到，不知何解 
-  AF_DataRequest( &Coord_DstAddr, (endPointDesc_t *)&epDesc,
-                 CID_M2C_TEMPERATURE, 2,
-                 moblieNodeTemperature, &transId,
-                 AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ); 
-}
-          
-/*********************************************************************
- * 函数名称：read_data
- * 功    能：获取温度，并将数据转换 
- * 入口参数：无
- * 出口参数：无
- * 返 回 值：无
- ********************************************************************/
-uint16 read_data(void)
-{
-  uint8 temh,teml;
-  uint16 temp;
-  
-  init_1820();          //复位18b20
-  write_1820(0xcc);     // 发出转换命令 忽略ROM
-  write_1820(0x44);     //启动转换
-  halMcuWaitUs(500);  //I/O 线就必须至少保持 500ms 高电平
-  
-  init_1820();
-  write_1820(0xcc);
-  write_1820(0xbe);     //读取暂存器和 CRC 字节
-  
-  teml=read_1820(); //读数据
-  temh=read_1820();
-  
-  //sensor_temperature_value[0]=teml;
-  //sensor_temperature_value[1]=temh;
-  
-  temp= temh;//将两个字节整合到一个unsigned int中
-  temp<<=8;
-  temp |= teml;
-  
-  return temp;
-}
-
-/*********************************************************************
- * 函数名称：read_1820
- * 功    能：获取温度，并将数据转换 
- * 入口参数：无
- * 出口参数：温度值
- * 返 回 值：无
- ********************************************************************/
-uint8 read_1820(void)
-{
-  uint8 temp,k,n;
-  temp=0;
-  for(n=0;n<8;n++)
-  {   SET_DQ_OUT;
-      DQ = 1;
-      halMcuWaitUs(1);
-      DQ = 0;
-      halMcuWaitUs(1); //延时1us
-  
-      DQ = 1;            
-      SET_DQ_IN;
-      halMcuWaitUs(6);//至少延时6us
-  
-      k = DQ;         //读数据,从低位开始
-      if(k)
-      temp|=(1<<n);
-      else
-      temp&=~(1<<n);
-      //Delay_nus(60); //60~120us
-      halMcuWaitUs(50);
-      SET_DQ_OUT;
-  
-  }
-  return (temp);
-}
-
-/*********************************************************************
- * 函数名称：write_1820
- * 功    能：获取温度，并将数据转换 
- * 入口参数：无
- * 出口参数：温度值
- * 返 回 值：无
- ********************************************************************/
-void write_1820(uint8 x)
-{
-  uint8 m;
-  SET_DQ_OUT;            
-  for(m=0;m<8;m++)
-   {  
-     DQ = 1;
-     halMcuWaitUs(1);
-     DQ = 0;          //拉低
-     if(x&(1<<m))    //写数据，从低位开始
-      DQ = 1;         //要在15us把数据放在写的数据（0或1）送到总线上
-     else
-      DQ = 0;
-     halMcuWaitUs(40);//拉高15—60us
-
-     DQ = 1;
-     halMcuWaitUs(3);//延时3us,两个写时序间至少需要1us的恢复期
-   }
-  DQ = 1;
-}
-
-
-
-/*********************************************************************
- * 函数名称： halMcuWaitUs
- * 功    能：忙等待功能。等待指定的微秒数。不同的指令所需的时钟周期数
- *           量不同。一个周期的持续时间取决于MCLK。(TI中的lightSwitch中的函数)
- * 入口参数：usec  延时时长，单位Wie微秒
- * 出口参数：无
- * 返 回 值：无
- * 注    意：此功能高度依赖于MCU架构和编译器。
- ********************************************************************/
-#pragma optimize = none
-void halMcuWaitUs(unsigned int usec)
-{
-  usec >>= 1;
-  while(usec--)
-  {
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-    asm("NOP");
-  }
-}

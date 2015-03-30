@@ -24,6 +24,7 @@
  * CONSTANTS
  */
 #define SINK_BROADCAST_EVT                0x0001   //不能使用0x0008 可能是与其他事件有冲突
+#define SINK_TEMP_EVT                   0x0002
 
 /*********************************************************************
  * MACROS

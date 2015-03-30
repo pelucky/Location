@@ -10,6 +10,7 @@
   derivative works, modify, distribute, perform, display or sell this
   software and/or its documentation for any purpose is prohibited
   without the express written consent of Texas Instruments, Inc.
+  使用T2定时器计算时间差、使用T3定时器设置定时延迟
 *********************************************************************/
 
 /*********************************************************************
@@ -72,9 +73,9 @@ unsigned char timeDiffMSG[R2C_DIFF_TIME_LENGTH];
 unsigned char recvMobiID = 1;                                          //用于标志正在接受的移动节点号
 unsigned char t3count = 0;
 
-unsigned char refer_id = 1;           //是参考节点的节点号，烧入不同节点的时候需要更改
-unsigned char recv_timeout = 160;     //设置一个序列号的超时时间，如果大于此还未发射表示未接满，直接发送
-unsigned char delay_time = 18;        //实际延迟是2*delay_time，指每次同发射端的延迟时间
+unsigned char refer_id = 4;           //是参考节点的节点号，烧入不同节点的时候需要更改
+unsigned int recv_timeout =400;     //设置一个序列号的超时时间，如果大于此还未发射表示未接满，直接发送 ,大于256注意溢出
+unsigned char delay_time = 50;        //实际延迟是2*delay_time，指每次同发射端的延迟时间
 
 /*********************************************************************
  * LOCAL VARIABLES
@@ -239,7 +240,7 @@ HAL_ISR_FUNCTION( halTimer3Isr, T3_VECTOR)
   if(TIMIF & 0x01) //确认是否产生计时中断
   {
     t3count++;
-    if(t3count == delay_time)     //2*12=24ms
+    if(t3count == delay_time)     //2*18=36ms
     {
       t3count = 0;
       
@@ -456,7 +457,7 @@ static void processMSGCmd( afIncomingMSGPacket_t *pkt )
   {
     case CID_S2MR_BROADCAST:
     {
-      //开启定时器T3计时，24ms
+      //开启定时器T3计时，36ms
       TIMER3_RUN(TRUE);
             
       //记下电磁波到达时间，作为开始计算的时间

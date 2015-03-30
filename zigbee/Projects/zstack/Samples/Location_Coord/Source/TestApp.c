@@ -74,7 +74,7 @@ static const cId_t LocationDongle_InputClusterList[] =
 {  
   CID_A2C_RP_BASIC_VALUE,
   CID_A2C_SUCCESS_RESPONSE,
-  CID_M2C_TEMPERATURE,
+  CID_S2C_TEMPERATURE,
   CID_M2C_REQ_POSITION, 
   CID_R2C_DIFF_TIME  
 };
@@ -291,6 +291,7 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
           uint8 buf[C2PC_RP_BASIC_VALUE_LENGTH_S];       //接收常数
           buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_S] = MT_C2PC_RP_BASIC_VALUE_S;
           buf[C2PC_RP_BASIC_VALUE_BROAD_CYC_S] = pkt->cmd.Data[S2C_RP_BASIC_VALUE_BROAD_CYC];
+          buf[C2PC_RP_BASIC_VALUE_TEMP_CYC_S] = pkt->cmd.Data[S2C_RP_BASIC_VALUE_TEMP_CYC];
           buf[C2PC_RP_BASIC_VALUE_END_S] = '\n';
           
           //将获取的sink网络地址存储到数组中
@@ -308,7 +309,6 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
           buf[C2PC_RP_BASIC_VALUE_MSG_TYPE_M] = MT_C2PC_RP_BASIC_VALUE_M;
           buf[C2PC_RP_BASIC_VALUE_MOB_ID_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_MOB_ID];
           buf[C2PC_RP_BASIC_VALUE_TEAM_ID_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_TEAM_ID];
-          buf[C2PC_RP_BASIC_VALUE_TEMP_CYC_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_TEMP_CYC];
           buf[C2PC_RP_BASIC_VALUE_SEND_DELAY_TIME_M] = pkt->cmd.Data[M2C_RP_BASIC_VALUE_SEND_DELAY_TIME];
           buf[C2PC_RP_BASIC_VALUE_END_M] = '\n';
       
@@ -353,13 +353,13 @@ void LocationDongle_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
       break; 
     }
     
-    //移动节点发送温度信息给协调器，协调器将数据发送至串口  
-    case CID_M2C_TEMPERATURE:
+    //Sink节点发送温度信息给协调器，协调器将数据发送至串口  
+    case CID_S2C_TEMPERATURE:
     {
       uint8 buf[C2PC_TEMPERATURE_DATA_LENGTH];       //接收常数
       buf[C2PC_TEMPERATURE_DATA_MSG_TYPE] = MT_C2PC_TEMPERATURE_DATA;
-      buf[C2PC_TEMPERATURE_DATA_HIGH] = pkt->cmd.Data[M2C_TEMPERATURE_DATA_HIGH];
-      buf[C2PC_TEMPERATURE_DATA_LOW] = pkt->cmd.Data[M2C_TEMPERATURE_DATA_LOW];
+      buf[C2PC_TEMPERATURE_DATA_HIGH] = pkt->cmd.Data[S2C_TEMPERATURE_DATA_HIGH];
+      buf[C2PC_TEMPERATURE_DATA_LOW] = pkt->cmd.Data[S2C_TEMPERATURE_DATA_LOW];
       buf[C2PC_TEMPERATURE_DATA_END] = '\n';
   
       HalUARTWrite(HAL_UART_PORT_0,buf,C2PC_TEMPERATURE_DATA_LENGTH);
@@ -568,6 +568,7 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       //将设置节点配置信息发给的sink节点
       unsigned char theMessageData[C2S_SET_BASIC_VALUE_LENGTH];     
       theMessageData[C2S_SET_BASIC_VALUE_BROAD_CYC] = msg[PC2C_SET_BASIC_VALUE_BROAD_CYC_S];
+      theMessageData[C2S_SET_BASIC_VALUE_TEMP_CYC] = msg[PC2C_SET_BASIC_VALUE_TEMP_CYC_S];
       
       afAddrType_t sinkAddr;
       sinkAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
@@ -586,7 +587,6 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       unsigned char theMessageData[C2M_SET_BASIC_VALUE_LENGTH];     
       theMessageData[C2M_SET_BASIC_VALUE_MOB_ID] = msg[PC2C_SET_BASIC_VALUE_MOB_ID_M];
       theMessageData[C2M_SET_BASIC_VALUE_TEAM_ID] = msg[PC2C_SET_BASIC_VALUE_TEAM_ID_M];
-      theMessageData[C2M_SET_BASIC_VALUE_TEMP_CYC] = msg[PC2C_SET_BASIC_VALUE_TEMP_CYC_M];
       theMessageData[C2M_SET_BASIC_VALUE_SEND_DELAY_TIME] = msg[PC2C_SET_BASIC_VALUE_SEND_DELAY_TIME_M];
       
       afAddrType_t mobileAddr;
@@ -617,6 +617,7 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       AF_DataRequest( &referAddr, (endPointDesc_t *)&epDesc,
                                CID_C2A_SET_BASIC_VALUE, C2R_SET_BASIC_VALUE_LENGTH,
                                theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
+
       break;
     }
     
