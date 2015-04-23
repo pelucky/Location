@@ -592,8 +592,8 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       afAddrType_t mobileAddr;
       mobileAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
       mobileAddr.endPoint = LOCATION_MOBILE_ENDPOINT; //目的端口号
-      mobileAddr.addr.shortAddr = BUILD_UINT16(mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
-                                               mobileNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
+      mobileAddr.addr.shortAddr = BUILD_UINT16(mobileNetAddr[(msg[PC2C_SET_BASIC_VALUE_MOB_ID_M]-1)][1],
+                                               mobileNetAddr[(msg[PC2C_SET_BASIC_VALUE_MOB_ID_M]-1)][0]);
       AF_DataRequest( &mobileAddr, (endPointDesc_t *)&epDesc,
                                CID_C2A_SET_BASIC_VALUE, C2M_SET_BASIC_VALUE_LENGTH,
                                theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
@@ -612,8 +612,8 @@ void LocationDongle_MTMsg( uint8 len, uint8 *msg )
       afAddrType_t referAddr;
       referAddr.addrMode = (afAddrMode_t)Addr16Bit; //单播发送
       referAddr.endPoint = LOCATION_REFER_ENDPOINT; //目的端口号
-      referAddr.addr.shortAddr = BUILD_UINT16(referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][1],
-                                              referNetAddr[(msg[PC2C_GET_BASIC_VALUE_NODE_ID]-1)][0]);
+      referAddr.addr.shortAddr = BUILD_UINT16(referNetAddr[(msg[PC2C_SET_BASIC_VALUE_REF_ID_R]-1)][1],
+                                              referNetAddr[(msg[PC2C_SET_BASIC_VALUE_REF_ID_R]-1)][0]);
       AF_DataRequest( &referAddr, (endPointDesc_t *)&epDesc,
                                CID_C2A_SET_BASIC_VALUE, C2R_SET_BASIC_VALUE_LENGTH,
                                theMessageData, &transId, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS );
